@@ -79,7 +79,9 @@ if __name__ == '__main__':
         param['output_dir'] = processed_dataset_path
 
         param['gap'] = 3
-        param['kS_list'] = [1, 2, 4, 8, 16]
+        param['kS_list'] = [4, 8, 16]
+        # param['kS_list'] = [1, 2, 4, 8, 16]
+
         param['kB'] = 8
 
         param['worker_no'] = file_list_index

@@ -80,8 +80,6 @@ def ProcessTrainingDataset(param):
     number_acquisitions = dimensions[2]
     number_spectral_bins = dimensions[3]
 
-
-
     t_start_before_loop = time.time()
 
     for kS_index, kS in enumerate(kS_list):

@@ -50,6 +50,10 @@ training_dataset_index_list = [int(f.split('__')[1]) for f in training_dataset_f
 
 # training_dataset_processor.ProcessTrainingDataset(param)
 
+kS_list = [1, 2, 4, 8, 16]
+
+kS_list = [4, 8]
+
 if __name__ == '__main__':
 
     # append a time string so that we know all the jobs are part of the same unit
@@ -62,33 +66,36 @@ if __name__ == '__main__':
 
     arguments_list = []
 
+    job_number = 0
+
     for file_list_index in xrange(len(training_dataset_fullfilename_list)):
 
-        training_dataset_filename = training_dataset_filename_list[file_list_index]
-        training_dataset_fullfilename = training_dataset_fullfilename_list[file_list_index]
-        training_dataset_index = training_dataset_index_list[file_list_index]
-        training_dataset_filename_prefix = '__'.join(training_dataset_filename.split('__')[0:2])
+        for kS in kS_list:
 
-        processed_dataset_path = os.path.join(processed_datasets_root_path, training_set_id)
-        if not os.path.exists(processed_dataset_path):
-            os.mkdir(processed_dataset_path)
+            training_dataset_filename = training_dataset_filename_list[file_list_index]
+            training_dataset_fullfilename = training_dataset_fullfilename_list[file_list_index]
+            training_dataset_index = training_dataset_index_list[file_list_index]
+            training_dataset_filename_prefix = '__'.join(training_dataset_filename.split('__')[0:2])
 
-        param = {}
-        param['input_filename'] = training_dataset_fullfilename
+            processed_dataset_path = os.path.join(processed_datasets_root_path, training_set_id)
+            if not os.path.exists(processed_dataset_path):
+                os.mkdir(processed_dataset_path)
 
-        param['output_dir'] = processed_dataset_path
+            param = {}
+            param['input_filename'] = training_dataset_fullfilename
 
-        param['gap'] = 3
-        param['kS_list'] = [4, 8, 16]
-        # param['kS_list'] = [1, 2, 4, 8, 16]
+            param['output_dir'] = processed_dataset_path
 
-        param['kB'] = 8
+            param['gap'] = 3
+            param['kS'] = kS
+            param['kB'] = 8
 
-        param['worker_no'] = file_list_index
+            param['worker_no'] = job_number
+            job_number += 1
 
-        arguments_list.append(param)
+            arguments_list.append(param)
 
-        print(param)
+            print(param)
 
 
     result = pool.map(training_dataset_processor.ProcessTrainingDataset, arguments_list)

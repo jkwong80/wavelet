@@ -46,7 +46,7 @@ def ProcessTrainingDataset(param):
     output_dir = param['output_dir']
 
     gap = param['gap']
-    kS_list = param['kS_list']
+    kS = param['kS']
     kB = param['kB']
 
     training_dataset_filename = os.path.split(training_dataset_fullfilename)[-1]
@@ -82,10 +82,19 @@ def ProcessTrainingDataset(param):
 
     t_start_before_loop = time.time()
 
-    for kS_index, kS in enumerate(kS_list):
+    filename = training_dataset_filename.replace('TrainingDataset', 'kS_%02d__ProcessedDataset' % kS)
+    output_fullfilename = os.path.join(output_dir, filename)
 
-        SNR_matrix = np.zeros((number_instances, number_detectors, number_acquisitions, 9228))
-        SNR_background_matrix = np.zeros((number_instances, number_detectors, number_acquisitions, 9228))
+    with h5py.File(output_fullfilename, "w") as f:
+
+        # SNR_matrix = f.create_dataset('SNR_matrix', shape=(number_instances, number_detectors, number_acquisitions, 9228), compression='gzip')
+        # SNR_background_matrix = f.create_dataset('SNR_background_matrix', shape=(number_instances, number_detectors, number_acquisitions, 9228), compression='gzip')
+        SNR_matrix = f.create_dataset('SNR_matrix', shape=(number_instances, number_detectors, number_acquisitions, 9228))
+        SNR_background_matrix = f.create_dataset('SNR_background_matrix', shape=(number_instances, number_detectors, number_acquisitions, 9228))
+
+        f.create_dataset('gap', data=gap)
+        f.create_dataset('kS', data= kS)
+        f.create_dataset('kB', data= kB)
 
         for instance_index in xrange(number_instances):
 
@@ -108,7 +117,7 @@ def ProcessTrainingDataset(param):
                     SNR_background_matrix[instance_index, detector_index, acquisition_index,:] = f_snr.ingest(
                         background[acquisition_index,:].astype(float))
                     # break
-
+                # break
 
                 # # versions where the whole array was already read into memory
                 # for acquisition_index in xrange(number_acquisitions):
@@ -126,16 +135,4 @@ def ProcessTrainingDataset(param):
                 else:
                     print('instance_index: {}/{}, sample detector_index: {}/{}, t_elapsed: {} sec'.format(instance_index, number_instances, detector_index, number_detectors, t_elapsed))
 
-
-        filename = training_dataset_filename.replace('TrainingDataset', 'kS_%02d__ProcessedDataset' %kS)
-        output_fullfilename = os.path.join(output_dir, filename)
-
-        with h5py.File(output_fullfilename, "w") as f:
-
-            f.create_dataset('SNR_matrix', data=SNR_matrix, compression='gzip')
-            f.create_dataset('SNR_background_matrix', data=SNR_background_matrix, compression='gzip')
-            f.create_dataset('gap', data=gap)
-            f.create_dataset('kS_list', data=kS_list)
-            f.create_dataset('kB', data=kB)
-
-            print("Saved: %s" % (output_fullfilename))
+    print("Saved: %s" % (output_fullfilename))

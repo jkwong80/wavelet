@@ -81,7 +81,7 @@ def ProcessTrainingDataset(param):
 
     t_start_before_loop = time.time()
 
-    filename = training_dataset_filename.replace('TrainingDataset', 'kS_%02d__ProcessedDataset' % kS)
+    filename = training_dataset_filename.replace('TrainingDataset', 'kS_%02d__kB_%02d__gap_%02d__ProcessedDataset' %(kS, kB, gap))
     output_fullfilename = os.path.join(output_dir, filename)
 
     with h5py.File(output_fullfilename, "w") as f:
@@ -192,7 +192,7 @@ def CalculateTargetValues(filename_input, filename_output):
         # background
 
         # collapse in energy bins
-        f.create_dataset('background_total_counts', data = signal.sum(3))
+        f.create_dataset('background_total_counts', data = background.sum(3))
         f.create_dataset('background_total_counts_no_first_bin', data = background[:,:,:,1:].sum(3))
 
         # collapse in energy bins and detector index

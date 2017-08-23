@@ -13,23 +13,19 @@ from sklearn.feature_selection import SelectKBest, chi2, f_classif, mutual_info_
 from collections import Counter
 
 from sklearn.model_selection import StratifiedKFold
-
-
 from sklearn import preprocessing
 
+from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score
 
 # does not work with multidimensional y: mutual_info_regression, mutual_info_classif, f_classif, f_regression
 # works with multidimensional y: chi2
 
 
-
 from sklearn.ensemble import RandomForestClassifier
-
 
 from scipy.stats import pearsonr
 
 # open a couple files and append the results
-
 
 if 'INJECTION_RESOURCES' in os.environ:
     base_dir = os.environ['INJECTION_RESOURCES']
@@ -150,7 +146,6 @@ for i in xrange(0, 100, 5):
     plt.title('instance %d, background, %s' %(i, source_name))
 
    # break
-
 
 
 
@@ -347,6 +342,19 @@ feature_score_array[indexindex, feature_selection_dict[scoring_function_key][sou
 
 
 
+with open('top_features.h5', 'w'):
+
+
+
+# things to save
+feature_score_array
+
+
+
+
+
+
+
 # plot of the tally count of from separate scoring algorithms
 
 plt.figure()
@@ -384,6 +392,8 @@ plt.plot(feature_count_array.sum(0), '-k', alpha = 0.5, linewidth = 3)
 
 
 
+
+# save the features to file
 
 
 
@@ -448,8 +458,8 @@ acquisitions_skip = 35
 dataset_index_start = 20
 dataset_index_stop = 50
 
-dataset_index_start = 32
-dataset_index_stop = 60
+dataset_index_start = 42
+dataset_index_stop = 43
 
 
 for dataset_index in xrange(dataset_index_start,dataset_index_stop):
@@ -493,9 +503,7 @@ for dataset_index in xrange(dataset_index_start,dataset_index_stop):
 
     number_sources = len(source_name_list)
 
-
     source_signal_matrix_all = np.zeros((number_instances * number_acquisitions_save,source_signal_total_counts_all_detectors_matrix.shape[1]))
-
 
     # reshaping the matrix
     # SNR_matrix_all = np.zeros((number_instances * number_acquisitions,number_wavelet_bins))
@@ -531,12 +539,23 @@ for dataset_index in xrange(dataset_index_start,dataset_index_stop):
 
 
 #  ############## concatenate separate files  #######################
-number_files = 30
-for dataset_index in xrange(0,number_files):
+max_number_files = 50
 
-
+dataset_actual_index_list = []
+for dataset_index in xrange(0,max_number_files):
     filtered_features_dataset_fullfilename = os.path.join(filtered_features_dataset_path, '%s__%03d__kS_%02d__FilteredFeaturesDataset.h5'\
                                                   %(training_set_id, dataset_index, kS))
+    if os.path.exists(filtered_features_dataset_fullfilename):
+        dataset_actual_index_list.append(dataset_index)
+
+number_files = len(dataset_actual_index_list)
+
+for dataset_index in xrange(number_files):
+
+    dataset_actual_index = dataset_actual_index_list[dataset_index]
+
+    filtered_features_dataset_fullfilename = os.path.join(filtered_features_dataset_path, '%s__%03d__kS_%02d__FilteredFeaturesDataset.h5'\
+                                                  %(training_set_id, dataset_actual_index, kS))
 
     with h5py.File(filtered_features_dataset_fullfilename, 'r') as f:
 
@@ -581,6 +600,8 @@ number_resample = 5
 X_no_resample = np.zeros((X.shape[0]/number_resample, X.shape[1]))
 y_no_resample = np.zeros((y.shape[0]/number_resample, y.shape[1]))
 
+mask_no_resample = np.zeros(y.shape[0]) == 1
+
 
 for i in xrange(X_no_resample.shape[0]):
 
@@ -593,6 +614,7 @@ for i in xrange(X_no_resample.shape[0]):
     X_no_resample[start_1:stop_1] = X[start_0:stop_0, :]
     y_no_resample[start_1:stop_1] = y[start_0:stop_0, :]
 
+    mask_no_resample[start_0:stop_0] = True
 
 
 # need a y where the no-isotope is index 0 and group together isotopes
@@ -672,32 +694,122 @@ plt.legend()
 
 # set the arrays
 skf = StratifiedKFold(n_splits=2)
-for indices_test, indices_train in skf.split(X,y[:,0]):
+for indices_test, indices_train in skf.split(X[mask_no_resample,:],y[mask_no_resample,0]):
     print(indices_test)
     print(indices_train)
 
-y_argmax_index = np.argmax(y, axis = 1)
+# for indices_test, indices_train in skf.split(X,y[:,0]):
+#     print(indices_test)
+#     print(indices_train)
+
+
+# y_argmax_index = np.argmax(y, axis = 1)
 
 # r, p = pearsonr(SNR_matrix_all, source_signal_matrix_all)
 
 # random forest
 print('Training random forest classifier')
 clf = RandomForestClassifier(random_state=0, verbose = 1, n_jobs = 4)
-clf.fit(X[indices_train,:], y_new[indices_train])
+clf.fit(X[mask_no_resample,:][indices_train,:], y_new[mask_no_resample][indices_train])
 
 
 prediction = clf.predict(X)
 
 # prediction_argmax_index = np.argmax(prediction, axis=1)
 
-prediction_test = prediction[indices_test]
-prediction_train = prediction[indices_train]
+prediction_test = prediction[mask_no_resample][indices_test]
+prediction_train = prediction[mask_no_resample][indices_train]
 
-y_new_test = y_new[indices_test]
-y_new_train = y_new[indices_train]
+y_new_test = y_new[mask_no_resample][indices_test]
+y_new_train = y_new[mask_no_resample][indices_train]
 
 # prediction_test_argmax_index = np.argmax(prediction_test, axis=1)
 # prediction_train_argmax_index = np.argmax(prediction_train, axis=1)
+
+# print confusion matrix
+confusion_mat = confusion_matrix(y_new_test, prediction_test)
+
+print(confusion_matrix())
+
+# calculate recall, precision, etc
+recall = recall_score(y_new_test, prediction_test, average = 'micro')
+precision = precision_score(y_new_test, prediction_test, average = 'micro')
+f1 = f1_score(y_new_test, prediction_test, average = 'micro')
+
+
+# calculate the actual drive performance
+# detector source
+# misidentified source
+# fall positive (in section leading up to the source
+
+negative_window = [0,12]
+
+positive_window = [13,20]
+
+number_driveby_instances = y_new.shape[0]/number_acquisitions_save
+
+# prediction_driveby = np.zeros(number_driveby_instances)
+prediction_driveby_positive_window = []
+truth_driveby_positive_window = np.zeros(number_driveby_instances)
+
+prediction_driveby_negative_window = []
+truth_driveby_negative_window = np.zeros(number_driveby_instances)
+
+true_positive_driveby = np.zeros(number_driveby_instances)
+
+true_positive_driveby_positive_window = np.zeros(number_driveby_instances).astype(bool)
+false_positive_driveby_positive_window = np.zeros(number_driveby_instances).astype(bool)
+false_positive_driveby_negative_window = np.zeros(number_driveby_instances).astype(bool)
+
+for drive_by_index in xrange(number_driveby_instances):
+
+    start_1 = drive_by_index * number_acquisitions_save
+    stop_1 = start_1 + number_acquisitions_save
+
+    truth_driveby_positive_window[drive_by_index] = np.max(y_new[start_1:stop_1][positive_window[0]:positive_window[1]]  )
+    prediction_driveby_positive_window.append(Counter(prediction[start_1:stop_1][positive_window[0]:positive_window[1]]))
+
+    truth_driveby_negative_window[drive_by_index] = np.max(y_new[start_1:stop_1][negative_window[0]:negative_window[1]])
+    prediction_driveby_negative_window.append(Counter(prediction[start_1:stop_1][negative_window[0]:negative_window[1]]))
+
+    prediction_keys = prediction_driveby_positive_window[drive_by_index].keys()
+
+    true_positive_driveby_positive_window[drive_by_index] = truth_driveby_positive_window[drive_by_index] in prediction_keys
+
+    # set of prediction labels
+    temp1 = set(prediction_keys)
+    # set of truth labels
+    # - append 0 because we don't consider predictions as no-source to be necessarily wrong
+    temp2 = set([truth_driveby_positive_window[drive_by_index], 0.0])
+
+    incorrect_predictions_positive_windows = list(temp1.difference(temp2))
+
+    false_positive_driveby_positive_window[drive_by_index] = len(incorrect_predictions_positive_windows) > 0
+
+    # let's examine the negative window - before the source
+
+    prediction_keys_negative_window = prediction_driveby_negative_window[drive_by_index].keys()
+
+
+    # set of prediction labels
+    temp1 = set(prediction_keys_negative_window)
+    # set of truth labels
+    # - append 0 because we don't consider predictions as no-source to be necessarily wrong
+    temp2 = set([truth_driveby_negative_window[drive_by_index], 0.0])
+
+    incorrect_predictions_negative_windows = list(temp1.difference(temp2))
+
+    false_positive_driveby_negative_window[drive_by_index] = len(incorrect_predictions_negative_windows) > 0
+
+
+
+recall_positive_window = true_positive_driveby_positive_window.sum() / float(len(true_positive_driveby_positive_window))
+
+incorrect_prediction_rate_positive_window = incorrect_predictions_positive_windows.sum() / float(len(incorrect_predictions_positive_windows))
+
+
+false_positive_rate_negative_window = false_positive_driveby_positive_window.sum() / float(len(false_positive_driveby_positive_window))
+
 
 
 # Truth vs prediction
@@ -709,15 +821,32 @@ plt.legend()
 
 
 
-# calculate the performance of the
+# plot of truth and prediction values vs instance
 
+plt.figure()
+plt.grid()
+
+test_indices = np.arange(len(y_new_test))
+
+mask_correct = y_new_test == prediction_test
+
+plt.plot(y_new_test, '-k', linewidth = 2, alpha = 0.4, label = 'Truth')
+plt.plot(test_indices[mask_correct], prediction_test[mask_correct], '*-g', linewidth = 2, alpha = 0.4, label = 'Prediction Correct')
+plt.plot(test_indices[~mask_correct], prediction_test[~mask_correct], '*r', linewidth = 2, alpha = 0.4, label = 'Prediction Incorrect')
+
+plt.xlabel('Training Instance', fontsize = 16)
+plt.ylabel('Truth/Prediction', fontsize = 16)
+plt.legend()
+
+
+# calculate the performance of the
 
 # y_argmax_index = np.argmax(y, axis = 1)
 
 # y_test_argmax_index = y_argmax_index[indices_test]
 # y_train_argmax_index = y_argmax_index[indices_train]
 
-cutt= (prediction_test_argmax_index >0 ) & (y_test_argmax_index == prediction_test_argmax_index)
+cutt = (prediction_test_argmax_index >0 ) & (y_test_argmax_index == prediction_test_argmax_index)
 
 
 plt.figure()

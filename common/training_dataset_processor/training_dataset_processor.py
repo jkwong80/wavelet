@@ -71,7 +71,6 @@ def ProcessTrainingDataset(param):
     # number_acquisitions = spectrum.shape[2]
     # number_spectral_bins = spectrum.shape[3]
 
-
     # number of samples (acquisitions) in the pass-by
     number_instances = dimensions[0]
     # number of detectors
@@ -226,7 +225,6 @@ def CalculateTargetValues(filename_input, filename_output):
         temp = np.zeros((number_instances, number_sources, number_acquisitions))
 
         for index in xrange(len(source_index)):
-
 
             temp[index, int(source_index[index]), :] = signal_total_counts_all_detectors[index,:]
 

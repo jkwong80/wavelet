@@ -48,6 +48,8 @@ class isoSNRFeature:
 
     def ingest(self, spec):
 
+        bin_max = 600
+
         s = spec
 
         # this is the bottle neck ~130ms
@@ -55,7 +57,10 @@ class isoSNRFeature:
         # for i in range(len(self.bins)):
         #     binnedSpec[i] = sum(s[self.bins[i]])
         for i in range(len(self.bins)):
-            binnedSpec[i] = s[self.bins[i][0]:(self.bins[i][0-1]+1)].sum()
+            if self.bins[i][0] > bin_max:
+                continue
+            else:
+                binnedSpec[i] = s[self.bins[i][0]:(self.bins[i][0-1]+1)].sum()
 
         # print(len(s))
 

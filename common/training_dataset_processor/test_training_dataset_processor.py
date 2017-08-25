@@ -22,9 +22,6 @@ sys.path.append(os.path.join(file_directory, ".."))
 import training_dataset_processor
 
 
-kS_list = [2, 4]
-kB = 16
-gap = 4
 
 number_samples_skip = 20
 number_samples_save = 50
@@ -72,8 +69,10 @@ if __name__ == '__main__':
     training_set_id = str(sys.argv[1])
     number_threads = int(sys.argv[2])
     kS_list = ast.literal_eval(sys.argv[3])
-    file_index_start = int(sys.argv[4])
-    file_index_stop = int(sys.argv[5])+1
+    kB = ast.literal_eval(sys.argv[4])
+    gap = ast.literal_eval(sys.argv[5])
+    file_index_start = int(sys.argv[6])
+    file_index_stop = int(sys.argv[7])+1
 
     # get the sim file names
     training_dataset_path = os.path.join(training_datasets_root_path, training_set_id)

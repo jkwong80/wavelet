@@ -12,7 +12,7 @@ from collections import Counter
 from sklearn.model_selection import StratifiedKFold
 from sklearn import preprocessing
 
-from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score
+from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score, accuracy_score
 
 # does not work with multidimensional y: mutual_info_regression, mutual_info_classif, f_classif, f_regression
 # works with multidimensional y: chi2
@@ -32,7 +32,6 @@ else:
 plot_dir = os.path.join(base_dir, 'plots', time.strftime('%Y%m%d'))
 training_datasets_root_path = os.path.join(base_dir, 'training_datasets')
 processed_datasets_root_path = os.path.join(base_dir, 'processed_datasets')
-
 filtered_features_dataset_root_path = os.path.join(base_dir, 'filtered_features_datasets')
 
 
@@ -51,7 +50,6 @@ training_dataset_path = os.path.join(training_datasets_root_path, training_set_i
 training_dataset_filename  = '%s__%03d__TrainingDataset.h5' % (training_set_id, 0)
 
 training_dataset_fullfilename  = os.path.join(training_dataset_path, training_dataset_filename)
-
 
 
 processed_dataset_path = os.path.join(processed_datasets_root_path, training_set_id)
@@ -112,8 +110,6 @@ for instance_index in xrange(y.shape[0]):
 
     if y[instance_index,:].sum() > count_threshold:
         y_new[instance_index] = isotope_mapping[np.argmax(y[instance_index, :])]
-
-
 
 
 # plot the mean subset of wavelet for each source
@@ -199,17 +195,18 @@ print(confusion_mat)
 recall = recall_score(y_new_test, prediction_test, average = 'micro')
 precision = precision_score(y_new_test, prediction_test, average = 'micro')
 f1 = f1_score(y_new_test, prediction_test, average = 'micro')
+accuracy = accuracy_score(y_new_test, prediction_test)
 
 print('Recall: {}'.format(recall))
 print('Precision: {}'.format(precision))
 print('f1: {}'.format(f1))
+print('accuracy: {}'.format(accuracy))
 
 # calculate the actual drive performance
 # detector source
 # misidentified source
 # fall positive (in section leading up to the source
 number_acquisitions_save = 25
-
 
 negative_window = [0,10]
 
@@ -276,14 +273,13 @@ recall_positive_window = true_positive_driveby_positive_window.sum() / float(len
 
 incorrect_prediction_rate_positive_window = false_positive_driveby_positive_window.sum() / float(len(false_positive_driveby_positive_window))
 
-
 false_positive_rate_negative_window = false_positive_driveby_negative_window.sum() / float(len(false_positive_driveby_negative_window))
 
 
 
 # Truth vs prediction
 plt.figure()
-plt.plot(y_new_test, prediction_test, '.k', alpha = 0.02, markersize = 25)
+plt.plot(y_new_test, prediction_test, '.k', alpha = 0.01, markersize = 25)
 plt.xlabel('Truth', fontsize = 16)
 plt.ylabel('Prediction', fontsize = 16)
 plt.legend()
@@ -351,4 +347,129 @@ plt.xlabel('Training Instance', fontsize = 16)
 plt.ylabel('Truth/Prediction', fontsize = 16)
 plt.legend()
 
+
+
+
+
+
+# keras
+
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.layers import Dropout
+from keras.wrappers.scikit_learn import KerasClassifier
+from keras.constraints import maxnorm
+from keras.optimizers import SGD
+from sklearn.model_selection import cross_val_score
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import StratifiedKFold
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from keras import metrics
+
+from sklearn.utils import class_weight
+
+
+
+
+
+lb = preprocessing.LabelBinarizer()
+lb.fit(y_new)
+
+lb.classes_
+
+
+
+y_matrix = lb.transform(y_new)
+
+
+cutt = y_new == 0
+
+indices = np.where(cutt)[0]
+
+cutt = np.zeros(len(y_new)) == 1
+
+cutt[indices[6000:]] = True
+
+mask_include = ~cutt
+
+seed = 7
+
+np.random.seed(seed)
+
+#
+# class_weight = class_weight.compute_class_weight('balanced', np.unique(y_new), y_new)
+
+model = Sequential()
+
+model.add(Dense(X.shape[1], input_dim=X.shape[1], init='uniform', activation='relu'))
+model.add(Dropout(0.2))
+model.add(Dense(400, init='uniform', activation='relu'))
+model.add(Dropout(0.2))
+model.add(Dense(400, init='uniform', activation='relu'))
+model.add(Dropout(0.2))
+model.add(Dense(200, init='uniform', activation='relu'))
+model.add(Dropout(0.2))
+model.add(Dense(100, init='uniform', activation='relu'))
+
+# model.add(Dense(y_new.shape[1], init='uniform', activation='relu'))
+model.add(Dense(y_matrix.shape[1], init='uniform', activation='relu'))
+
+model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy']) # Fit the model
+
+# opt = SGD(lr=0.001)
+# model.compile(loss = "categorical_crossentropy", optimizer = opt, metrics=['accuracy'])
+
+# model.fit(X[indices_train,:], y_matrix[indices_train,:], nb_epoch=25, batch_size=2000, validation_split = 0.33, class_weight = class_weight)
+model.fit(X[mask_include,:], y_matrix[mask_include,:], nb_epoch=200, batch_size=10000, validation_split = 0.25)
+
+
+prediction_matrix = model.predict(X)
+
+prediction = np.argmax(prediction_matrix, axis =1)
+
+# prediction_argmax_index = np.argmax(prediction, axis=1)
+
+prediction_test = prediction[indices_test]
+prediction_train = prediction[indices_train]
+
+y_new_test = y_new[indices_test]
+y_new_train = y_new[indices_train]
+
+# prediction_test_argmax_index = np.argmax(prediction_test, axis=1)
+# prediction_train_argmax_index = np.argmax(prediction_train, axis=1)
+
+# print confusion matrix
+confusion_mat = confusion_matrix(y_new_test, prediction_test)
+
+print(confusion_mat)
+
+# calculate recall, precision, etc
+recall = recall_score(y_new_test, prediction_test, average = 'micro')
+precision = precision_score(y_new_test, prediction_test, average = 'micro')
+f1 = f1_score(y_new_test, prediction_test, average = 'micro')
+accuracy = accuracy_score(y_new_test, prediction_test)
+
+
+print('Recall: {}'.format(recall))
+print('Precision: {}'.format(precision))
+print('f1: {}'.format(f1))
+print('accuracy: {}'.format(accuracy))
+
+# plot of truth and prediction values vs instance
+
+plt.figure()
+plt.grid()
+
+test_indices = np.arange(len(y_new_test))
+
+mask_correct = y_new_test == prediction_test
+
+plt.plot(y_new_test, '-k', linewidth = 2, alpha = 0.4, label = 'Truth')
+plt.plot(test_indices[mask_correct], prediction_test[mask_correct], '*-g', linewidth = 2, alpha = 0.4, label = 'Prediction Correct')
+plt.plot(test_indices[~mask_correct], prediction_test[~mask_correct], '*r', linewidth = 2, alpha = 0.4, label = 'Prediction Incorrect')
+
+plt.xlabel('Training Instance', fontsize = 16)
+plt.ylabel('Truth/Prediction', fontsize = 16)
+plt.legend()
 

@@ -314,9 +314,10 @@ def CreateFilteredFeaturesFile(param):
     acquisitions_skip = param['acquisitions_skip']
     detector_index = param['detector_index']
 
+    mask_filtered_features = param['mask_filtered_features']
 
     with h5py.File(best_features_fullfilename, 'r') as f:
-        mask_filtered_features = f['mask_filtered_features'].value
+        mask_filtered_features = f[mask_filtered_features].value
     print('Keeping {} features'.format(sum(mask_filtered_features)))
 
     # open the wavelet file
@@ -383,6 +384,7 @@ def CreateFilteredFeaturesFile(param):
     with h5py.File(filtered_features_dataset_fullfilename, 'w') as f:
         f.create_dataset('y', data=y, compression = 'gzip')
         f.create_dataset('X', data=X, compression = 'gzip')
+        f.create_dataset('mask_filtered_features', data=mask_filtered_features, compression = 'gzip')
 
     print('Wrote: {}'.format(filtered_features_dataset_fullfilename))
 
@@ -392,6 +394,7 @@ def ConsolidateFilteredFeatturesFiles(fullfilename_list, output_filename):
     # ############## concatenate separate files  #######################
 
     number_files = len(fullfilename_list)
+    print("number_files: {}".format(number_files))
 
     for dataset_index, fullfilename in enumerate(fullfilename_list):
 

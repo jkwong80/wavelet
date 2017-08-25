@@ -14,13 +14,23 @@ if __name__ == '__main__':
     kB = int(sys.argv[4])
     gap = int(sys.argv[5])
 
+    start_index = int(sys.argv[6])
+    stop_index = int(sys.argv[7])
 
     temp = glob.glob(os.path.join(file_path, \
                       '*kS_%02d__kB_%02d__gap_%02d__FilteredFeaturesDataset.h5' % ( kS, kB, gap)))
 
-    fullfilename_list = [f for f in temp if training_set_id in f]
-
+    fullfilename_list = [f for f in temp if (training_set_id in f) and ('all' not in f) and (int(f.split('__')[1]) >= start_index) and (int(f.split('__')[1]) <= stop_index)]
     fullfilename_list.sort()
+    # make sure not 'all' and that the index is in range
+    # filename_list = [os.path.split(f)[-1] for f in fullfilename_list if ('all' not in f) and (int(f.split('__')[1]) >= start_index) and (int(f.split('__')[1]) <= stop_index)]
+    filename_list = [os.path.split(f)[-1] for f in fullfilename_list]
+
+    # temp = [int(f.split('__')[1]) for f in filename_list if 'all' not in f]
+    #
+    # dataset_index_list = [f for f in temp if (f >= start_index) and (f <= stop_index)]
+
+    print(filename_list)
 
     output_filename = '%s__all__kS_%02d__kB_%02d__gap_%02d__FilteredFeaturesDataset.h5' % (training_set_id, kS, kB, gap)
 

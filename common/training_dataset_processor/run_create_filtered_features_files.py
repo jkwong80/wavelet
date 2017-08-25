@@ -1,14 +1,24 @@
 """ Examine the wavelet features and perform feature selection.
 Also create rough
+
+Arguments
+    training_set_id uuid
+    training_set_id = str(sys.argv[1])
+    number_threads = int(sys.argv[2])
+    kS_list = ast.literal_eval(sys.argv[3])
+    kB = ast.literal_eval(sys.argv[4])
+    gap = ast.literal_eval(sys.argv[5])
+    acquisitions_skip = ast.literal_eval(sys.argv[6])
+    number_acquisitions_save = ast.literal_eval(sys.argv[7])
+    file_index_start = int(sys.argv[8])
+    file_index_stop = int(sys.argv[9])+1
+
 """
 #
 
 import os, sys, glob, time
 import h5py, ast
 import cPickle
-
-import numpy as np
-
 from collections import Counter
 
 import training_dataset_processor
@@ -55,9 +65,7 @@ feature_selection_path = os.path.join(base_dir, 'feature_selection')
 feature_selection_filename = '5b178c11-a4e4-4b19-a925-96f27c49491b__kS_02__kB_16__gap_04__top_features.h5'
 feature_selection_fullfilename = os.path.join(feature_selection_path, feature_selection_filename)
 
-
 filtered_features_dataset_root_path = os.path.join(base_dir, 'filtered_features_datasets')
-
 
 # CreateFilteredFeaturesFile(processed_dataset_fullfilename, target_values_fullfilename,
 #                            filtered_features_dataset_fullfilename, best_features_fullfilename, \
@@ -70,27 +78,22 @@ if __name__ == '__main__':
 
     # LOAD DATA FROM SIMULATION FILE
     training_set_id = str(sys.argv[1])
-
     number_threads = int(sys.argv[2])
+    kS_list = ast.literal_eval(sys.argv[3])
+    kB = ast.literal_eval(sys.argv[4])
+    gap = ast.literal_eval(sys.argv[5])
+    acquisitions_skip = ast.literal_eval(sys.argv[6])
+    number_acquisitions_save = ast.literal_eval(sys.argv[7])
+    file_index_start = int(sys.argv[8])
+    file_index_stop = int(sys.argv[9])+1
+
+    feature_indices_name = sys.argv[10]
 
     pool = Pool(processes=number_threads)
 
     arguments_list = []
 
     job_number = 0
-
-    # for file_list_index in xrange(4, len(training_dataset_fullfilename_list)):
-
-    kS_list = ast.literal_eval(sys.argv[3])
-    kB = ast.literal_eval(sys.argv[4])
-
-    gap = ast.literal_eval(sys.argv[5])
-
-    acquisitions_skip = ast.literal_eval(sys.argv[6])
-    number_acquisitions_save = ast.literal_eval(sys.argv[7])
-
-    file_index_start = int(sys.argv[8])
-    file_index_stop = int(sys.argv[9])+1
 
     print('kS_list', kS_list)
     print('file_index_start: {}'.format(file_index_start))
@@ -111,20 +114,11 @@ if __name__ == '__main__':
             processed_dataset_path = os.path.join(processed_datasets_root_path, training_set_id)
 
             print('os.path.exists(processed_dataset_path): {}'.format(os.path.exists(processed_dataset_path)))
-            # glob_filter = 'kS_%02d__kB_%02d__gap_%02d__ProcessedDataset' % (kS, kB, gap)
-            # processed_dataset_fullfilename_list = glob.glob(
-            #     os.path.join(processed_dataset_path, '*ProcessedDataset.h5'))
-            # processed_dataset_filename_list = [os.path.split(f)[-1] for f in processed_dataset_fullfilename_list]
-            # processed_dataset_narrow_fullfilename_list = [f for f in processed_dataset_fullfilename_list if
-            #                                               glob_filter in f]
-            # # This is the file index
-            # processed_dataset_narrow_index_list = [int(f.split('__')[1]) for f in
-            #                                        processed_dataset_narrow_fullfilename_list]
 
-
+            # this is the output file name
             filtered_features_dataset_fullfilename = os.path.join(filtered_features_dataset_path,
-                                                                  '%s__%03d__kS_%02d__kB_%02d__gap_%02d__FilteredFeaturesDataset.h5' \
-                                                                  % (training_set_id, file_list_index, kS, kB, gap))
+                                                                  '%s__%03d__kS_%02d__kB_%02d__gap_%02d__%s__FilteredFeaturesDataset.h5' \
+                                                                  % (training_set_id, file_list_index, kS, kB, gap, feature_indices_name))
 
             processed_dataset_filename = '%s__%03d__kS_%02d__kB_%02d__gap_%02d__ProcessedDataset.h5' %(training_set_id, file_list_index, kS, kB, gap)
             processed_dataset_fullfilename = os.path.join(processed_dataset_path, processed_dataset_filename)
@@ -140,6 +134,8 @@ if __name__ == '__main__':
             param['best_features_fullfilename'] = feature_selection_fullfilename
             param['number_acquisitions_save'] = number_acquisitions_save
             param['acquisitions_skip'] = acquisitions_skip
+            param['feature_indices_name'] = feature_indices_name
+
             param['detector_index'] = 0
 
             param['worker_no'] = job_number
@@ -156,84 +152,3 @@ if __name__ == '__main__':
     pool.join()
     print('Time Elapsed: %3.3f' %(time.time() - t_start))
 
-
-
-
-
-
-#
-#
-#
-# for dataset_index in xrange(dataset_index_start,dataset_index_stop):
-#
-#     processed_dataset_fullfilename = os.path.join(processed_dataset_path, '%s__%03d__kS_%02d__kB_%02d__gap_%02d__ProcessedDataset.h5'\
-#                                                   %(training_set_id, dataset_index, kS, kB, gap))
-#
-#     processed_dataset = h5py.File(processed_dataset_fullfilename, 'r')
-#
-#     # get the dimensions of the matrices
-#     dimensions = processed_dataset['SNR_matrix'].shape
-#     # number of samples (acquisitions) in the pass-by
-#     number_instances = dimensions[0]
-#     # number of detectors
-#     number_detectors = dimensions[1]
-#     # number of samples (acquisitions) in the pass-by
-#     number_acquisitions = dimensions[2]
-#     # number of wavelet bins
-#     number_wavelet_bins = dimensions[3]
-#
-#
-#     # focus on a single detector
-#
-#     # flatten the matrix
-#     SNR_matrix = processed_dataset['SNR_matrix'].value
-#
-#
-#     # target_values_fullfilename = target_values_fullfilename_list[dataset_index]
-#
-#     target_values_fullfilename = os.path.join(target_values_path, '%s__%03d__TargetValues.h5'\
-#                                                   %(training_set_id, dataset_index))
-#
-#     target_values = h5py.File(target_values_fullfilename, 'r')
-#
-#     source_signal_total_counts_all_detectors_matrix = target_values['source_signal_total_counts_all_detectors_matrix'].value
-#
-#     source_index = target_values['source_index']
-#     source_name_list = target_values['source_name_list']
-#
-#     number_sources = len(source_name_list)
-#
-#     source_signal_matrix_all = np.zeros((number_instances * number_acquisitions_save,source_signal_total_counts_all_detectors_matrix.shape[1]))
-#
-#     # reshaping the matrix
-#     # SNR_matrix_all = np.zeros((number_instances * number_acquisitions,number_wavelet_bins))
-#     SNR_matrix_all = np.zeros((number_instances * number_acquisitions_save,number_wavelet_bins))
-#
-#     for instance_index in xrange(number_instances):
-#         if instance_index % 10 == 0:
-#             print('{}/{}'.format(instance_index, number_instances))
-#         start0 = acquisitions_skip
-#         stop0 = acquisitions_skip + number_acquisitions_save
-#
-#         start = instance_index * number_acquisitions_save
-#         stop = (instance_index + 1) * number_acquisitions_save
-#
-#
-#         SNR_matrix_all[start:stop,:] = SNR_matrix[instance_index,detector_index,start0:stop0,:]
-#
-#         source_signal_matrix_all[start:stop,:] = source_signal_total_counts_all_detectors_matrix[instance_index, :,start0:stop0].T
-#
-#
-#     filtered_features_dataset_fullfilename = os.path.join(filtered_features_dataset_path, '%s__%03d__kS_%02d__FilteredFeaturesDataset.h5'\
-#                                                   %(training_set_id, dataset_index, kS))
-#
-#     X = SNR_matrix_all[:, feature_selection_ch2_multiclass['top_features_indices']]
-#
-#     y = source_signal_matrix_all[:, :]
-#
-#     with h5py.File(filtered_features_dataset_fullfilename, 'w') as f:
-#         f.create_dataset('y', data=y, compression = 'gzip')
-#         f.create_dataset('X', data=X, compression = 'gzip')
-#
-#     print('Wrote: {}'.format(filtered_features_dataset_fullfilename))
-#

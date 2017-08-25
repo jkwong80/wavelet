@@ -70,6 +70,10 @@ if __name__ == '__main__':
     # LOAD DATA FROM SIMULATION FILE
     # training_set_id = '9a1be8d8-c573-4a68-acf8-d7c7e2f9830f'
     training_set_id = str(sys.argv[1])
+    number_threads = int(sys.argv[2])
+    kS_list = ast.literal_eval(sys.argv[3])
+    file_index_start = int(sys.argv[4])
+    file_index_stop = int(sys.argv[5])+1
 
     # get the sim file names
     training_dataset_path = os.path.join(training_datasets_root_path, training_set_id)
@@ -77,10 +81,7 @@ if __name__ == '__main__':
     training_dataset_fullfilename_list = glob.glob(os.path.join(training_dataset_path, '*.h5'))
     training_dataset_fullfilename_list.sort()
     training_dataset_filename_list = [os.path.split(f)[-1] for f in training_dataset_fullfilename_list]
-
     training_dataset_index_list = [int(f.split('__')[1]) for f in training_dataset_filename_list]
-
-    number_threads = int(sys.argv[2])
 
     pool = Pool(processes=number_threads)
 
@@ -90,9 +91,6 @@ if __name__ == '__main__':
 
     # for file_list_index in xrange(4, len(training_dataset_fullfilename_list)):
 
-    kS_list = ast.literal_eval(sys.argv[3])
-    file_index_start = int(sys.argv[4])
-    file_index_stop = int(sys.argv[5])+1
 
     print('kS_list', kS_list)
     print('file_index_start: {}'.format(file_index_start))

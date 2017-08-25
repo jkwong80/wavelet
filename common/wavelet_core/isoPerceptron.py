@@ -56,11 +56,16 @@ class isoSNRFeature:
         binnedSpec = np.zeros(len(self.bins))
         # for i in range(len(self.bins)):
         #     binnedSpec[i] = sum(s[self.bins[i]])
+
         for i in range(len(self.bins)):
-            if self.bins[i][0] > bin_max:
-                continue
-            else:
+            if self.bins[i][0] < bin_max:
                 binnedSpec[i] = s[self.bins[i][0]:(self.bins[i][0-1]+1)].sum()
+
+        # for i in range(len(self.bins)):
+        #     if self.bins[i][0] > bin_max:
+        #         continue
+        #     else:
+        #         binnedSpec[i] = s[self.bins[i][0]:(self.bins[i][0 - 1] + 1)].sum()
 
         # print(len(s))
 

@@ -54,16 +54,34 @@ training_dataset_fullfilename_list.sort()
 training_dataset_filename_list = [os.path.split(f)[-1] for f in training_dataset_fullfilename_list]
 training_dataset_index_list = [int(f.split('__')[1]) for f in training_dataset_filename_list]
 
-
-
 training_dataset_index = 0
 
 training_dataset_fullfilename = training_dataset_fullfilename_list[training_dataset_index]
 
-
 dat = h5py.File(training_dataset_fullfilename, 'r')
 
-#
+
+source_name_list = dat['source_name_list'].value
+source_index = dat['source_index'].value
+
+
+# make plot of spectra
+
+for source_name_index, source_name in enumerate(source_name_list):
+
+    if source_name_index % 7 == 0:
+        plt.figure()
+        plt.grid()
+        plt.title(job_id)
+    plt.plot(np.arange(1024) * 3 + 1.5, dat['injection_spectra'][source_name_index+12*26, 0, 50, :], alpha = 0.5, linewidth = 2 ,label = source_name)
+
+    if source_name_index % 7 == 6:
+        plt.legend()
+    plt.xlim((0, 1500))
+    plt.yscale('log')
+plt.legend()
+
+
 # # get the processed dataset files
 #
 # glob_filter = 'kS_%02d__ProcessedDataset.h5' %(kS)
@@ -137,3 +155,6 @@ for dataset_index_index, dataset_index in enumerate(dataset_index_list):
     # source_name_list = target_values['source_name_list'].value
     #
     # number_sources = len(source_name_list)
+
+
+

@@ -1,4 +1,8 @@
-""" Calculates the target values for training data in a directory"""
+""" Calculates the target values for training data in a directory
+python run_training_dataset_calculate_target_values.py <input_directory> <output_directory>
+
+
+"""
 
 import os, sys, glob
 

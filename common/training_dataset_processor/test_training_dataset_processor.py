@@ -19,15 +19,24 @@ sys.path.append(file_directory)
 
 sys.path.append(os.path.join(file_directory, ".."))
 
-
 import training_dataset_processor
 
+
+kS_list = [2, 4]
+kB = 16
+gap = 4
+
+number_samples_skip = 20
+number_samples_save = 50
+run_snr_background = False
+
+number_bins = 512
 
 plot_colors = ['k', 'r', 'b', 'g', 'm', 'c', 'y']
 
 
 # Define all the paths
-# base_dir = '/Volumes/Lacie2TB/BAA/Data'
+# base_dir = '/Volumes/Lacie2TB/BAA/Data'mm
 # base_dir = os.path.join(os.environ['HOME'], 'injection_resources')
 if 'INJECTION_RESOURCES' in os.environ:
     base_dir = os.environ['INJECTION_RESOURCES']
@@ -41,12 +50,17 @@ processed_datasets_root_path = os.path.join(base_dir, 'processed_datasets')
 if not os.path.exists(plot_dir):
     os.mkdir(plot_dir)
 
+snr_root_path = os.path.join(base_dir, 'snr_functions')
+
+if not os.path.exists(snr_root_path):
+    os.mkdir(snr_root_path)
+
+snr_path = os.path.join(snr_root_path, '20170824')
+
+
 
 # training_dataset_processor.ProcessTrainingDataset(param)
 
-# kS_list = [1, 2, 4, 8]
-
-# kS_list = [2]
 
 if __name__ == '__main__':
 
@@ -109,9 +123,21 @@ if __name__ == '__main__':
 
             param['output_dir'] = processed_dataset_path
 
-            param['gap'] = 3
+            param['gap'] = gap
             param['kS'] = kS
-            param['kB'] = 8
+            param['kB'] = kB
+
+
+            param['number_bins'] = number_bins
+
+            snr_name_suffix = 'kS_%02d__kB_%02d__gap_%02d' % (param['kS'], param['kB'], param['gap'])
+
+            param['snr_fullfilename'] = os.path.join(snr_path, 'f_snr__%s.pkl' % snr_name_suffix)
+            param['number_samples_skip'] = number_samples_skip
+            param['number_samples_save'] = number_samples_save
+
+            param['run_snr_background'] = run_snr_background
+
 
             param['worker_no'] = job_number
             job_number += 1
@@ -124,3 +150,4 @@ if __name__ == '__main__':
     pool.close()
     pool.join()
     print('Time Elapsed: %3.3f' %(time.time() - t_start))
+

@@ -1,19 +1,20 @@
 
 from __future__ import print_function
-
+import os, sys
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
-import os
-import sys
 import time
 import glob
 import numpy as np
+import cPickle
 
 file_directory = os.path.dirname(os.path.realpath(__file__))
 print(os.path.realpath(__file__))
 print(file_directory)
 sys.path.append(os.path.join(file_directory, ".."))
+
+
 
 import wavelet_core.isoPerceptron
 
@@ -48,6 +49,14 @@ def ProcessTrainingDataset(param):
     gap = param['gap']
     kS = param['kS']
     kB = param['kB']
+
+    number_samples_save = param['number_samples_save']
+    number_samples_skip = param['number_samples_skip']
+
+    param['snr_fullfilename']
+
+    number_bins = param['number_bins']
+
 
     training_dataset_filename = os.path.split(training_dataset_fullfilename)[-1]
 
@@ -88,16 +97,35 @@ def ProcessTrainingDataset(param):
 
         # SNR_matrix = f.create_dataset('SNR_matrix', shape=(number_instances, number_detectors, number_acquisitions, 9228), compression='gzip')
         # SNR_background_matrix = f.create_dataset('SNR_background_matrix', shape=(number_instances, number_detectors, number_acquisitions, 9228), compression='gzip')
-        SNR_matrix = f.create_dataset('SNR_matrix', shape=(number_instances, number_detectors, number_acquisitions, 9228))
-        SNR_background_matrix = f.create_dataset('SNR_background_matrix', shape=(number_instances, number_detectors, number_acquisitions, 9228))
 
-        f.create_dataset('gap', data=gap)
-        f.create_dataset('kS', data= kS)
-        f.create_dataset('kB', data= kB)
+        if number_bins == 512:
+            number_wavelet_bins = 4107
+        elif number_bins == 1024:
+            number_wavelet_bins = 9228
+
+        # no compression as this slows things down quite a bit
+        SNR_matrix = f.create_dataset('SNR_matrix', shape=(number_instances, number_detectors, number_samples_save, number_wavelet_bins))
+
+        # can skip depending on what the user wants
+        if param['run_snr_background']:
+            SNR_background_matrix = f.create_dataset('SNR_background_matrix', shape=(number_instances, number_detectors, number_acquisitions, number_wavelet_bins))
+
+        f.create_dataset('gap', data = gap)
+        f.create_dataset('kS', data = kS)
+        f.create_dataset('kB', data = kB)
+        f.create_dataset('snr_fullfilename', data = param['snr_fullfilename'])
+        f.create_dataset('number_samples_save', data = param['number_samples_save'])
+        f.create_dataset('number_samples_skip', data = param['number_samples_skip'])
+        f.create_dataset('number_bins', data = param['number_bins'])
 
         for instance_index in xrange(number_instances):
 
-            f_snr = wavelet_core.isoPerceptron.isoSNRFeature(number_spectral_bins, kB, gap, kS)
+            if 'snr_fullfilename' in param:
+                print('Loadings snr: {}'.format(param['snr_fullfilename']))
+                with open(param['snr_fullfilename'], 'rb') as fid:
+                    f_snr = cPickle.load(fid)
+            else:
+                f_snr = wavelet_core.isoPerceptron.isoSNRFeature(number_spectral_bins, kB, gap, kS)
 
             for detector_index in xrange(number_detectors):
 
@@ -106,16 +134,26 @@ def ProcessTrainingDataset(param):
                 signal = training_dataset['injection_spectra'][instance_index, detector_index, :,:]
                 background = training_dataset['background_matrix'][instance_index, detector_index, :,:]
 
-                # versions where the whole array was already read into memory
-                for acquisition_index in xrange(number_acquisitions):
-                    SNR_matrix[instance_index, detector_index, acquisition_index,:] = f_snr.ingest(
-                        (signal[acquisition_index,:]+background[acquisition_index,:]).astype(float))
-                    # break
+                if param['run_snr_background']:
+                    for acquisition_index in xrange(number_acquisitions):
+                        SNR_background_matrix[instance_index, detector_index, acquisition_index,:] = f_snr.ingest(
+                            background[acquisition_index,:].astype(float))
 
-                for acquisition_index in xrange(number_acquisitions):
-                    SNR_background_matrix[instance_index, detector_index, acquisition_index,:] = f_snr.ingest(
-                        background[acquisition_index,:].astype(float))
-                    # break
+                # # versions where the whole array was already read into memory
+                # for acquisition_index in xrange(number_acquisitions):
+                #     SNR_matrix[instance_index, detector_index, acquisition_index,:] = f_snr.ingest(
+                #         (signal[acquisition_index,:]+background[acquisition_index,:]).astype(float))
+
+                for sample_index in xrange(number_samples_save):
+                    # Get the index in the spectra array
+                    acquisition_index = number_samples_skip + sample_index
+                    if sample_index % 20 == 0:
+                        print('sample index {}/{}'.format(sample_index, number_samples_save))
+
+                    SNR_matrix[instance_index, detector_index, sample_index,:] = f_snr.ingest(
+                        (signal[acquisition_index,:]+background[acquisition_index,:]).astype(float))
+
+
                 # break
 
                 # # versions where the whole array was already read into memory
@@ -249,5 +287,137 @@ def CalculateTargetValues(filename_input, filename_output):
             source_detector_distance[index,:] = distance_array[sub_index,:]
             source_detector_angle[index,:] = angle_array[sub_index,:]
             detector_x[index,:] = x_array[sub_index,:]
-
     print("Saved: %s" % (filename_output))
+
+
+# def CreateFilteredFeaturesFile(processed_dataset_fullfilename, target_values_fullfilename, filtered_features_dataset_fullfilename, best_features_fullfilename,\
+#                                number_acquisitions_save, acquisitions_skip, detector_index):
+def CreateFilteredFeaturesFile(param):
+
+    """
+
+    :param processed_dataset_fullfilename:
+    :param target_values_fullfilename:
+    :param filtered_features_dataset_fullfilename:
+    :param best_features_fullfilename:
+    :param number_acquisitions_save: number of acquisitions to save
+    :param acquisitions_skip: number of acquisitions to stkip
+    :param detector_index: detector index
+    :return:
+    """
+    # open the top features file
+    processed_dataset_fullfilename = param['processed_dataset_fullfilename']
+    target_values_fullfilename = param['target_values_fullfilename']
+    filtered_features_dataset_fullfilename = param['filtered_features_dataset_fullfilename']
+    best_features_fullfilename = param['best_features_fullfilename']
+    number_acquisitions_save = param['number_acquisitions_save']
+    acquisitions_skip = param['acquisitions_skip']
+    detector_index = param['detector_index']
+
+
+    with h5py.File(best_features_fullfilename, 'r') as f:
+        mask_filtered_features = f['mask_filtered_features'].value
+    print('Keeping {} features'.format(sum(mask_filtered_features)))
+
+    # open the wavelet file
+    processed_dataset = h5py.File(processed_dataset_fullfilename, 'r')
+
+    # get the dimensions of the matrices
+    dimensions = processed_dataset['SNR_matrix'].shape
+    # number of samples (acquisitions) in the pass-by
+    number_instances = dimensions[0]
+    # number of detectors
+    number_detectors = dimensions[1]
+    # number of samples (acquisitions) in the pass-by
+    number_acquisitions = dimensions[2]
+    # number of wavelet bins
+    number_wavelet_bins = dimensions[3]
+
+    number_samples_save = processed_dataset['number_samples_save'].value
+    number_samples_skip = processed_dataset['number_samples_skip'].value
+
+    # focus on a single detector
+
+    # Note that this has already been truncated - it will be truncated some more by
+    # acquisitions_skip to (acquisitions_skip+number_acquisitions_save)
+    SNR_matrix = processed_dataset['SNR_matrix'].value
+
+    target_values = h5py.File(target_values_fullfilename, 'r')
+
+    # this has not been truncate so need to truncated it here
+    # after the truncation here (as it is loaded), it should be on equal footing as SNR_matrix
+    source_signal_total_counts_all_detectors_matrix =\
+        target_values['source_signal_total_counts_all_detectors_matrix'][:,:,number_samples_skip:(number_samples_skip+number_samples_save)]
+
+    source_index = target_values['source_index']
+    source_name_list = target_values['source_name_list']
+
+    number_sources = len(source_name_list)
+
+    # the number of training instances is the number of drive by instances (number_instances) times the number of acquisitions to save per drive-by
+    source_signal_matrix_all = np.zeros((number_instances * number_acquisitions_save, source_signal_total_counts_all_detectors_matrix.shape[1]))
+
+    # reshaping the matrix
+    SNR_matrix_all = np.zeros((number_instances * number_acquisitions_save, number_wavelet_bins))
+
+    for instance_index in xrange(number_instances):
+        if instance_index % 10 == 0:
+            print('{}/{}'.format(instance_index, number_instances))
+        # indices in the drive by space
+        start0 = acquisitions_skip
+        stop0 = acquisitions_skip + number_acquisitions_save
+
+        # indices in the training instance space
+        start = instance_index * number_acquisitions_save
+        stop = (instance_index + 1) * number_acquisitions_save
+
+        # remove the features later
+        SNR_matrix_all[start:stop,:] = SNR_matrix[instance_index,detector_index,start0:stop0,:]
+
+        source_signal_matrix_all[start:stop,:] = source_signal_total_counts_all_detectors_matrix[instance_index, :, start0:stop0].T
+
+    X = SNR_matrix_all[:,mask_filtered_features]
+
+    y = source_signal_matrix_all[:, :]
+
+    with h5py.File(filtered_features_dataset_fullfilename, 'w') as f:
+        f.create_dataset('y', data=y, compression = 'gzip')
+        f.create_dataset('X', data=X, compression = 'gzip')
+
+    print('Wrote: {}'.format(filtered_features_dataset_fullfilename))
+
+
+def ConsolidateFilteredFeatturesFiles(fullfilename_list, output_filename):
+
+    # ############## concatenate separate files  #######################
+
+    number_files = len(fullfilename_list)
+
+    for dataset_index, fullfilename in enumerate(fullfilename_list):
+
+        with h5py.File(fullfilename, 'r') as f:
+
+            if dataset_index == 0:
+                X_dimensions = f['X'].shape
+                y_dimensions = f['y'].shape
+
+                print(X_dimensions)
+
+                X = np.zeros((X_dimensions[0] * number_files, X_dimensions[1]))
+
+                y = np.zeros((y_dimensions[0] * number_files, y_dimensions[1]))
+            start_index = dataset_index * X_dimensions[0]
+            stop_index = (dataset_index + 1) * X_dimensions[0]
+
+            X[start_index:stop_index, :] = f['X']
+            y[start_index:stop_index, :] = f['y']
+
+        print('read: {}'.format(fullfilename))
+
+    # write to file
+
+    with h5py.File(output_filename, 'w') as f:
+        f.create_dataset('y', data=y, compression='gzip')
+        f.create_dataset('X', data=X, compression='gzip')
+
+    print('Wrote: {}'.format(output_filename))

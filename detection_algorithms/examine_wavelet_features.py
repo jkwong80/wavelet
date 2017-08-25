@@ -42,8 +42,8 @@ filtered_features_dataset_root_path = os.path.join(base_dir, 'filtered_features_
 # parameters
 kS = 2
 # the uuid of the training dataset
-training_set_id = '9a1be8d8-c573-4a68-acf8-d7c7e2f9830f'
-
+# training_set_id = '9a1be8d8-c573-4a68-acf8-d7c7e2f9830f'
+training_set_id = '5b178c11-a4e4-4b19-a925-96f27c49491b'
 
 filtered_features_dataset_path = os.path.join(filtered_features_dataset_root_path, training_set_id)
 
@@ -72,6 +72,7 @@ target_values_fullfilename_list = glob.glob(os.path.join(processed_dataset_path,
 target_values_index_list = [int(f.split('__')[1]) for f in target_values_fullfilename_list]
 
 
+
 # '%s__%03d__kS_%02d__ProcessedDataset.h5' %(training_set_id, file_index, kS)
 # 9a1be8d8-c573-4a68-acf8-d7c7e2f9830f__000__kS_01__ProcessedDataset.h5
 
@@ -95,10 +96,7 @@ number_acquisitions = dimensions[2]
 # number of wavelet bins
 number_wavelet_bins = dimensions[3]
 
-
 # focus on a single detector
-
-
 detector_index = 0
 
 

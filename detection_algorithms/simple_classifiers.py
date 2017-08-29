@@ -40,11 +40,12 @@ kS = 2
 kB = 16
 gap = 4
 
+feature_indices_name = 'mask_filtered_features_2'
+
 # the uuid of the training dataset
 # training_set_id = '9a1be8d8-c573-4a68-acf8-d7c7e2f9830f'
-training_set_id = '5b178c11-a4e4-4b19-a925-96f27c49491b'
-
-
+# training_set_id = '5b178c11-a4e4-4b19-a925-96f27c49491b'
+training_set_id = 'dd70a53c-0598-447c-9b23-ea597ed1704e'
 
 training_dataset_path = os.path.join(training_datasets_root_path, training_set_id)
 training_dataset_filename  = '%s__%03d__TrainingDataset.h5' % (training_set_id, 0)
@@ -60,12 +61,13 @@ processed_dataset_fullfilename = os.path.join(processed_dataset_path, processed_
 filtered_features_dataset_root_path = os.path.join(base_dir, 'filtered_features_datasets')
 filtered_features_dataset_path  = os.path.join(filtered_features_dataset_root_path, training_set_id)
 
-filtered_features_filename = '%s__all__kS_%02d__kB_%02d__gap_%02d__FilteredFeaturesDataset.h5' % (training_set_id, kS, kB, gap)
+filtered_features_filename = '%s__all__kS_%02d__kB_%02d__gap_%02d__%s__FilteredFeaturesDataset.h5' % (training_set_id, kS, kB, gap, feature_indices_name)
 
 filtered_features_fullfilename = os.path.join(filtered_features_dataset_path, filtered_features_filename)
 
 
-# read in the file
+# read in the file in the filtered features file
+# does doesn't have the final target values files
 
 with h5py.File(filtered_features_fullfilename, 'r') as f:
     X = f['X'].value
@@ -75,8 +77,6 @@ with h5py.File(filtered_features_fullfilename, 'r') as f:
 # get source_name_list
 with h5py.File(training_dataset_fullfilename, 'r') as fid:
     source_name_list = fid['source_name_list'].value
-
-
 # need a y where the no-isotope is index 0 and group together isotopes
 isotope_string_list = []
 
@@ -94,20 +94,16 @@ print('Number of isotopes: {}'.format(len(isotope_string_set)))
 isotope_mapping = {}
 for isotope_string_index, isotope_string in enumerate(isotope_string_list):
     isotope_mapping[isotope_string_index] = np.where(isotope_string_set == isotope_string)[0][0]+1
-
+# this the
 y_new = np.zeros(y.shape[0])
+
+
 
 count_threshold = 50
 
 # count_threshold_fraction_max_counts = 0.10
 
 for instance_index in xrange(y.shape[0]):
-
-    # if y[instance_index,:].sum() == 0:
-    #     y_new[instance_index] = 0
-    # else:
-    #     y_new[instance_index] = isotope_mapping[np.argmax(y[instance_index, :])]
-
     if y[instance_index,:].sum() > count_threshold:
         y_new[instance_index] = isotope_mapping[np.argmax(y[instance_index, :])]
 

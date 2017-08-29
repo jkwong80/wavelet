@@ -1,7 +1,20 @@
+"""Consolidates the filtered features files
+Arguments
+
+file path
+uuid
+kS
+kB
+gap
+start index
+stop index
+feature set name
+
+
+"""
+
 import os, sys, glob
-
-
-
+z
 import training_dataset_processor
 
 
@@ -16,9 +29,16 @@ if __name__ == '__main__':
 
     start_index = int(sys.argv[6])
     stop_index = int(sys.argv[7])
+    feature_indices_name = sys.argv[8]
+
 
     temp = glob.glob(os.path.join(file_path, \
-                      '*kS_%02d__kB_%02d__gap_%02d__FilteredFeaturesDataset.h5' % ( kS, kB, gap)))
+                      '*kS_%02d__kB_%02d__gap_%02d__%s__FilteredFeaturesDataset.h5' % ( kS, kB, gap, feature_indices_name)))
+
+    # filtered_features_dataset_fullfilename = os.path.join(filtered_features_dataset_path,
+    #                                                       '%s__%03d__kS_%02d__kB_%02d__gap_%02d__%s__FilteredFeaturesDataset.h5' \
+    #                                                       % (training_set_id, file_list_index, kS, kB, gap,
+    #                                                          feature_indices_name))
 
     fullfilename_list = [f for f in temp if (training_set_id in f) and ('all' not in f) and (int(f.split('__')[1]) >= start_index) and (int(f.split('__')[1]) <= stop_index)]
     fullfilename_list.sort()
@@ -32,7 +52,7 @@ if __name__ == '__main__':
 
     print(filename_list)
 
-    output_filename = '%s__all__kS_%02d__kB_%02d__gap_%02d__FilteredFeaturesDataset.h5' % (training_set_id, kS, kB, gap)
+    output_filename = '%s__all__kS_%02d__kB_%02d__gap_%02d__%s__FilteredFeaturesDataset.h5' % (training_set_id, kS, kB, gap, feature_indices_name)
 
     output_fullfilename = os.path.join(file_path, output_filename)
 

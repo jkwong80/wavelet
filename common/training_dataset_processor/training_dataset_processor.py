@@ -153,7 +153,6 @@ def ProcessTrainingDataset(param):
                     SNR_matrix[instance_index, detector_index, sample_index,:] = f_snr.ingest(
                         (signal[acquisition_index,:]+background[acquisition_index,:]).astype(float))
 
-
                 # break
 
                 # # versions where the whole array was already read into memory
@@ -173,8 +172,6 @@ def ProcessTrainingDataset(param):
                     print('instance_index: {}/{}, sample detector_index: {}/{}, t_elapsed: {} sec'.format(instance_index, number_instances, detector_index, number_detectors, t_elapsed))
 
     print("Saved: %s" % (output_fullfilename))
-
-
 
 
 
@@ -253,6 +250,28 @@ def CalculateTargetValues(filename_input, filename_output):
 
         f.create_dataset('source_index', data = training_dataset['source_index'])
         f.create_dataset('source_name_list', data = training_dataset['source_name_list'])
+
+
+
+
+        isotope_string_list = []
+
+        for source_name in source_name_list:
+            index_underscore = source_name.find('_')
+            isotope_string_list.append(source_name[:index_underscore])
+
+        isotope_string_list = np.array(isotope_string_list)
+        isotope_string_set = np.array(list(set(isotope_string_list)))
+        isotope_string_set.sort()
+
+        print('Number of isotopes: {}'.format(len(isotope_string_set)))
+
+        # map from isotope string to y value
+        isotope_mapping = {}
+        for isotope_string_index, isotope_string in enumerate(isotope_string_list):
+            isotope_mapping[isotope_string_index] = np.where(isotope_string_set == isotope_string)[0][0] + 1
+        # this the
+        y_new = np.zeros(y.shape[0])
 
         # Calcuate the main target array - total counts for each isotope
         # dimensions: number_instances x number_sources x number_acquisitions
@@ -362,8 +381,8 @@ def CreateFilteredFeaturesFile(param):
     SNR_matrix_all = np.zeros((number_instances * number_acquisitions_save, number_wavelet_bins))
 
     for instance_index in xrange(number_instances):
-        if instance_index % 10 == 0:
-            print('{}/{}'.format(instance_index, number_instances))
+        # if instance_index % 10 == 0:
+        #     print('{}/{}'.format(instance_index, number_instances))
         # indices in the drive by space
         start0 = acquisitions_skip
         stop0 = acquisitions_skip + number_acquisitions_save
@@ -381,9 +400,47 @@ def CreateFilteredFeaturesFile(param):
 
     y = source_signal_matrix_all[:, :]
 
+
+    # taken from train_classifiers.py
+    # Calculate projection to isotope axes (y is to source axes)
+
+    # create the mapping (dict)
+    isotope_string_list = []
+    for source_name in source_name_list:
+        index_underscore = source_name.find('_')
+        isotope_string_list.append(source_name[:index_underscore])
+
+    isotope_string_list = np.array(isotope_string_list)
+    isotope_string_set = np.array(list(set(isotope_string_list)))
+    isotope_string_set.sort()
+
+    print('Number of isotopes: {}'.format(len(isotope_string_set)))
+
+    # map from isotope string to y value
+    isotope_mapping = {}
+    for isotope_string_index, isotope_string in enumerate(isotope_string_list):
+        isotope_mapping[isotope_string_index] = np.where(isotope_string_set == isotope_string)[0][0] + 1
+    # this the
+    y_isotope = np.zeros(y.shape[0]).astype(np.int16)
+    y_isotope_count = np.zeros((y.shape[0], len(isotope_string_set) ))
+
+    count_threshold = 50
+
+    # count_threshold_fraction_max_counts = 0.10
+
+    for instance_index in xrange(y.shape[0]):
+        if y[instance_index, :].sum() > count_threshold:
+            sub_index = isotope_mapping[np.argmax(y[instance_index, :])]
+            y_isotope[instance_index] = sub_index
+            y_isotope_count[instance_index, sub_index] = y[instance_index, :].sum()
+
+
     with h5py.File(filtered_features_dataset_fullfilename, 'w') as f:
         f.create_dataset('y', data=y, compression = 'gzip')
         f.create_dataset('X', data=X, compression = 'gzip')
+        f.create_dataset('y_isotope', data=y_isotope, compression = 'gzip')
+        f.create_dataset('y_isotope_count', data=y_isotope_count, compression = 'gzip')
+
         f.create_dataset('mask_filtered_features', data=mask_filtered_features, compression = 'gzip')
 
     print('Wrote: {}'.format(filtered_features_dataset_fullfilename))

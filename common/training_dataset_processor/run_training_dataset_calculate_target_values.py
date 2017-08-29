@@ -10,8 +10,6 @@ import training_dataset_processor
 
 
 def CalculateTargetValuesMultiple(input_directory, output_directory):
-
-
     # get the list of files
     fullfilenamelist = glob.glob(os.path.join(input_directory, '*TrainingDataset.h5'))
     fullfilenamelist.sort()

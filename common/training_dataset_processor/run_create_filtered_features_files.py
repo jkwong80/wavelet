@@ -134,7 +134,7 @@ if __name__ == '__main__':
             param['best_features_fullfilename'] = feature_selection_fullfilename
             param['number_acquisitions_save'] = number_acquisitions_save
             param['acquisitions_skip'] = acquisitions_skip
-            param['feature_indices_name'] = feature_indices_name
+            param['mask_filtered_features'] = feature_indices_name
 
             param['detector_index'] = 0
 

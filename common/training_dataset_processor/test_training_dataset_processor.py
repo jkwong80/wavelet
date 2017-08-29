@@ -21,8 +21,6 @@ sys.path.append(os.path.join(file_directory, ".."))
 
 import training_dataset_processor
 
-
-
 number_samples_skip = 20
 number_samples_save = 50
 run_snr_background = False

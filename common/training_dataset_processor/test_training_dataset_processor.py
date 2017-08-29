@@ -88,7 +88,6 @@ if __name__ == '__main__':
 
     # for file_list_index in xrange(4, len(training_dataset_fullfilename_list)):
 
-
     print('kS_list', kS_list)
     print('file_index_start: {}'.format(file_index_start))
     print('file_index_stop: {}'.format(file_index_stop))
@@ -112,6 +111,16 @@ if __name__ == '__main__':
             processed_dataset_path = os.path.join(processed_datasets_root_path, training_set_id)
             if not os.path.exists(processed_dataset_path):
                 os.mkdir(processed_dataset_path)
+
+            # check if the file already exists
+
+
+            filename = training_dataset_filename.replace('TrainingDataset',
+                                                         'kS_%02d__kB_%02d__gap_%02d__ProcessedDataset' % (kS, kB, gap))
+            output_fullfilename = os.path.join(processed_dataset_path, filename)
+            if os.path.exists(output_fullfilename):
+                print('Skipping: {}'.format(output_fullfilename))
+                continue
 
             param = {}
             param['input_filename'] = training_dataset_fullfilename

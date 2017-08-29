@@ -182,13 +182,16 @@ for kS_index, kS in enumerate(kS_list):
                         y_new[instance_index] = isotope_mapping[np.argmax(y[instance_index, :])]
 
                 # Balance the classes (less background)
-                number_background_instances_include = 100 * int(np.bincount(y_new)[1:].mean()/100)
 
+                # determine the number of
+                number_background_instances_include = 100 * int(np.bincount(y_new)[1:].mean()/100)
                 # find all instances that are class is 0 (background)
                 cutt = y_new == 0
                 indices = np.where(cutt)[0]
                 cutt = np.zeros(len(y_new)) == 1
                 cutt[indices[number_background_instances_include:]] = True
+
+                # this is the maske of all instances that we will use for training and testing
                 mask_include = ~cutt
 
                 print('Original Count of classes:')
@@ -205,18 +208,6 @@ for kS_index, kS in enumerate(kS_list):
 
                 y_matrix = lb.transform(y_new)
 
-                # Create a dictionary with all the models we will be training
-                clf_dict = {}
-
-                # random forest
-                # clf_dict['rf_0'] = RandomForestClassifier(n_estimators = 100, random_state=0, verbose = 1, n_jobs = 6)
-                # simple neural networks with some dropoff (0.2)
-                # clf_dict['nn_4layer'] = KerasClassifier(build_fn = create_neural_network_4layer_model, input_size = X.shape[1], output_size = y_matrix.shape[1], nb_epoch = 100, batch_size = 500, verbose = 1)
-                # clf_dict['nn_5layer'] = KerasClassifier(build_fn = create_neural_network_5layer_model, input_size = X.shape[1], output_size = y_matrix.shape[1], nb_epoch = 100, batch_size = 500, verbose = 1)
-
-                clf_dict['lr'] = LogisticRegression(n_jobs = 6)
-                clf_dict['lda'] = LinearDiscriminantAnalysis()
-                # clf_dict['gb'] = GradientBoostingClassifier(n_estimators = 50, verbose = 1)
 
                 kfold = StratifiedKFold(n_splits = 3, shuffle = True, random_state = 0)
 
@@ -230,52 +221,103 @@ for kS_index, kS in enumerate(kS_list):
                 # print(y_matrix_mask_include.shape)
                 # print(y_index_mask_include.shape)
 
+                # list of algorithms
 
-                for model_index, model_name in enumerate(clf_dict.keys()):
-                    print('Model Name: {}'.format(model_name))
+                model_keys = ['lr', 'lda']
 
-                    # Does not work with neural network
-                    if 'nn' not in model_name:
-                        # results = cross_val_score(clf_dict[model_name], X[mask_include,:], y_matrix[mask_include,:], cv=kfold)
-                        results_dict[model_name] = cross_val_score(clf_dict[model_name], X[mask_include, :][:number_training_instances_cross_val, :], \
-                                                                   y_index_mask_include[:number_training_instances_cross_val],\
-                                                                   cv=kfold)
+                clf_all_dict = {key:[] for key in ['lr', 'lda']}
+                metrics_all_dict = {key:[] for key in ['lr', 'lda']}
+                prediction_dict =  {key:[] for key in ['lr', 'lda']}
+
+                indices = {'test':[], 'train':[]}
 
                 # set test and training split
                 skf = StratifiedKFold(n_splits=2)
+                split_index = 0
                 for indices_test, indices_train in skf.split(X[mask_include, :], y[mask_include, 0]):
-                    print(indices_test_mask_include)
-                    print(indices_train_mask_include)
 
-                # now let's train the models
-                for model_index, model_name in enumerate(clf_dict.keys()):
-                    print('Model Name: {}'.format(model_name))
+                    indices['test'].append(indices_test)
+                    indices['train'].append(indices_train)
 
-                    if 'nn' not in model_name:
-                        # results = cross_val_score(clf_dict[model_name], X[mask_include,:], y_matrix[mask_include,:], cv=kfold)
-                        clf_dict[model_name].fit( X[mask_include, :][:number_training_instances_cross_val, :], \
-                                                  y_index_mask_include[:number_training_instances_cross_val])
+                    # print(indices_test_mask_include)
+                    # print(indices_train_mask_include)
 
-                prediction_dict = {}
+                    for model_index, model_name in enumerate( model_keys ):
 
-                for model_index, model_name in enumerate(clf_dict.keys()):
-                    print('Model Name: {}'.format(model_name))
-                    if 'nn' not in model_name:
-                        prediction_dict[model_name] = clf_dict[model_name].predict(X[mask_include,:])
+                        # random forest
+                        if model_name == 'rf_0':
+                            model =  RandomForestClassifier(n_estimators = 100, random_state=0, verbose = 1, n_jobs = 6)
+                        elif model_name == 'nn_4layer':
+                            # simple neural networks with some dropoff (0.2)
+                            model = KerasClassifier(build_fn = create_neural_network_4layer_model, input_size = X.shape[1], output_size = y_matrix.shape[1], nb_epoch = 100, batch_size = 500, verbose = 1)
+                        elif model_name == 'nn_5layer':
+                            model = KerasClassifier(build_fn = create_neural_network_5layer_model, input_size = X.shape[1], output_size = y_matrix.shape[1], nb_epoch = 100, batch_size = 500, verbose = 1)
+                        elif model_name == 'lr':
+                            model = LogisticRegression(n_jobs=6)
+                        elif model_name == 'lda':
+                            model = LinearDiscriminantAnalysis()
+                        elif model_name == 'gb':
+                            model = GradientBoostingClassifier(n_estimators = 50, verbose = 1)
+                        else:
+                            continue
+                        clf_all_dict[model_name].append(model)
 
-                metrics = {}
+                        print('Model Name: {}'.format(model_name))
 
-                for model_index, model_name in enumerate(prediction_dict.keys()):
-                    print('Model Name: {}'.format(model_name))
+                        # Does not work with neural network
+                        if 'nn' not in model_name:
+                            # # results = cross_val_score(clf_dict[model_name], X[mask_include,:], y_matrix[mask_include,:], cv=kfold)
+                            # results_dict[model_name] = cross_val_score(clf_dict[model_name], X[mask_include, :][:number_training_instances_cross_val, :], \
+                            #                                            y_index_mask_include[:number_training_instances_cross_val],\
+                            #                                            cv=kfold)
 
-                    metrics[model_name] = {}
-                    metrics[model_name]['accuracy'] = accuracy_score(y_index_mask_include, prediction_dict[model_name])
-                    metrics[model_name]['f1'] = f1_score(y_index_mask_include, prediction_dict[model_name], average = 'micro')
-                    metrics[model_name]['recall'] = recall_score(y_index_mask_include, prediction_dict[model_name], average = 'micro')
-                    metrics[model_name]['precision'] = precision_score(y_index_mask_include, prediction_dict[model_name], average = 'micro')
+                            # results = cross_val_score(clf_dict[model_name], X[mask_include,:], y_matrix[mask_include,:], cv=kfold)
+                            clf_all_dict[model_name][split_index].fit(X[mask_include, :][indices_train, :], \
+                                                     y_index_mask_include[indices_train])
 
-                    for metric_name in metrics[model_name].keys():
-                        print('{}: {}'.format(metric_name, metrics[model_name][metric_name]))
+                            prediction_dict[model_name][split_index].append( clf_all_dict[model_name][split_index].predict(X[mask_include,:]))
+
+                        else:
+                            clf_all_dict[model_name][split_index].fit(X[mask_include, :][indices_train, :], \
+                                                         y_matrix_mask_include[indices_train,:])
+                            prediction_dict[model_name][split_index].append( clf_all_dict[model_name][split_index].predict(X[mask_include,:]))
+
+                        metrics[model_name] = {}
+
+                        if 'nn' not in model_name:
+                            metrics[model_name]['accuracy'] = accuracy_score(y_index_mask_include, prediction_dict[model_name][split_index])
+                            metrics[model_name]['f1'] = f1_score(y_index_mask_include, prediction_dict[model_name][split_index], average = 'micro')
+                            metrics[model_name]['recall'] = recall_score(y_index_mask_include, prediction_dict[model_name][split_index], average = 'micro')
+                            metrics[model_name]['precision'] = precision_score(y_index_mask_include, prediction_dict[model_name][split_index], average = 'micro')
+                        else:
+                            prediction_arg_max = np.argmax(prediction_dict[model_name][split_index], axis = 1)
+                            metrics[model_name]['accuracy'] = accuracy_score(y_index_mask_include, prediction_arg_max)
+                            metrics[model_name]['f1'] = f1_score(y_index_mask_include, prediction_arg_max, average = 'micro')
+                            metrics[model_name]['recall'] = recall_score(y_index_mask_include, prediction_arg_max, average = 'micro')
+                            metrics[model_name]['precision'] = precision_score(y_index_mask_include, prediction_arg_max,  average = 'micro')
+
+                            
+                    split_index += 1
+                # prediction_dict = {}
+                #
+                # for model_index, model_name in enumerate(clf_dict.keys()):
+                #     print('Model Name: {}'.format(model_name))
+                #     if 'nn' not in model_name:
+                #         prediction_dict[model_name] = clf_dict[model_name].predict(X[mask_include,:])
+                #
+                # metrics = {}
+                #
+                # for model_index, model_name in enumerate(prediction_dict.keys()):
+                #     print('Model Name: {}'.format(model_name))
+                #
+                #     metrics[model_name] = {}
+                #     metrics[model_name]['accuracy'] = accuracy_score(y_index_mask_include, prediction_dict[model_name])
+                #     metrics[model_name]['f1'] = f1_score(y_index_mask_include, prediction_dict[model_name], average = 'micro')
+                #     metrics[model_name]['recall'] = recall_score(y_index_mask_include, prediction_dict[model_name], average = 'micro')
+                #     metrics[model_name]['precision'] = precision_score(y_index_mask_include, prediction_dict[model_name], average = 'micro')
+                #
+                #     for metric_name in metrics[model_name].keys():
+                #         print('{}: {}'.format(metric_name, metrics[model_name][metric_name]))
 
                 del X
                 del y

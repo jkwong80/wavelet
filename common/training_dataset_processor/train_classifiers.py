@@ -1,7 +1,7 @@
 
 import os, sys, glob, time
 import h5py, cPickle
-
+import copy
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.feature_selection import SelectKBest, chi2, f_classif, mutual_info_classif, f_regression, mutual_info_regression
@@ -33,11 +33,14 @@ from sklearn.pipeline import Pipeline
 from keras import metrics
 
 from sklearn.utils import class_weight
+from scipy.stats import pearsonr
 
 plot_markers = ''
 
 
 def create_neural_network_5layer_model(input_size, output_size):
+# def create_neural_network_5layer_model():
+
     print('input_size: '.format(input_size))
     print('output_size: '.format(output_size))
 
@@ -57,7 +60,9 @@ def create_neural_network_5layer_model(input_size, output_size):
     model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy']) # Fit the model
     return model
 
+# def create_neural_network_4layer_model():
 def create_neural_network_4layer_model(input_size, output_size):
+
     print('input_size: '.format(input_size))
     print('output_size: '.format(output_size))
     model = Sequential()
@@ -74,7 +79,6 @@ def create_neural_network_4layer_model(input_size, output_size):
     model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy']) # Fit the model
     return model
 
-from scipy.stats import pearsonr
 
 # open a couple files and append the results
 
@@ -89,46 +93,55 @@ processed_datasets_root_path = os.path.join(base_dir, 'processed_datasets')
 filtered_features_dataset_root_path = os.path.join(base_dir, 'filtered_features_datasets')
 
 models_dataset_root_path = os.path.join(base_dir, 'models')
-models_dataset_path = os.path.join(models_dataset_root_path, '0')
+models_dataset_path = os.path.join(models_dataset_root_path, '2')
 
 
 if not os.path.exists(models_dataset_root_path):
     os.mkdir(models_dataset_root_path)
-
-
 if not os.path.exists(models_dataset_path):
     os.mkdir(models_dataset_path)
 
 
+# lost of parameters to cycle through
 kS_list = [2, 4, 8]
 
 kB_list = [16]
 gap_list = [4]
 feature_indices_name_list = ['mask_filtered_features_2', 'mask_filtered_features_3']
 
-# # parameters
-# kS = 2
-# kB = 16
-# gap = 4
+# list of algorithms
+# model_keys = ['lr', 'lda']
+model_keys = ['lda', 'nn_4layer']
 
-number_instance_load = 500000
+
+
+# # number to load from file
+load_subset = True
+# load_subset = False
+number_instance_load = 50000
 
 # number of values to use in the cross validation
-number_training_instances_cross_val = 10000
+# number_training_instances_cross_val = 10000
+
+count_threshold = 100
+
 # the uuid of the training dataset
-# training_set_id = '9a1be8d8-c573-4a68-acf8-d7c7e2f9830f'
-# training_set_id = '5b178c11-a4e4-4b19-a925-96f27c49491b'
 training_set_id = 'dd70a53c-0598-447c-9b23-ea597ed1704e'
 
 training_dataset_path = os.path.join(training_datasets_root_path, training_set_id)
 training_dataset_filename = '%s__%03d__TrainingDataset.h5' % (training_set_id, 0)
 training_dataset_fullfilename = os.path.join(training_dataset_path, training_dataset_filename)
 
+positive_buffer_value = 0
+
+buffer_size = {2: 4, 4: 6, 8: 6}
+
 for kS_index, kS in enumerate(kS_list):
     for kB_index, kB in enumerate(kB_list):
         for gap_index, gap in enumerate(gap_list):
             for feature_indices_name_index, feature_indices_name in enumerate(feature_indices_name_list):
 
+                print(' ')
                 print('Working on %s, kS_%02d, kB_%02d, gap_%02d, %s' % (training_set_id, kS, kB, gap, feature_indices_name))
 
                 # processed_dataset_path = os.path.join(processed_datasets_root_path, training_set_id)
@@ -144,11 +157,15 @@ for kS_index, kS in enumerate(kS_list):
                 # does doesn't have the final target values files
 
                 with h5py.File(filtered_features_fullfilename, 'r') as f:
-                    # X = f['X'][:number_instance_load,:]
-                    # y = f['y'][:number_instance_load,:]
-                    X = f['X'].value
-                    y = f['y'].value
+                    if load_subset:
+                        X = f['X'][:number_instance_load,:]
+                        y = f['y'][:number_instance_load,:]
+                    else:
+                        X = f['X'].value
+                        y = f['y'].value
 
+                # input_size = X.shape[1]
+                # output_size = y_matrix.shape[1]
                 print(X.shape)
                 print(y.shape)
 
@@ -172,14 +189,20 @@ for kS_index, kS in enumerate(kS_list):
                 isotope_mapping = {}
                 for isotope_string_index, isotope_string in enumerate(isotope_string_list):
                     isotope_mapping[isotope_string_index] = np.where(isotope_string_set == isotope_string)[0][0]+1
-                # this the
+
+                # this the y with the new isotope mapping
                 y_new = np.zeros(y.shape[0], dtype = np.int16)
 
-                count_threshold = 50
                 # count_threshold_fraction_max_counts = 0.10
                 for instance_index in xrange(y.shape[0]):
                     if y[instance_index,:].sum() > count_threshold:
                         y_new[instance_index] = isotope_mapping[np.argmax(y[instance_index, :])]
+
+                indices = np.where(np.diff(y_new.astype(int)) > 0)[0]
+                y_new_buffered = copy.deepcopy(y_new)
+                for index in indices:
+                    y_new_buffered[(index + 1):(index + 1 + buffer_size[kS])] = y_new_buffered[index + 1]
+                # now use y_new_buffered for almost everything
 
                 # Balance the classes (less background)
 
@@ -208,33 +231,38 @@ for kS_index, kS in enumerate(kS_list):
 
                 y_matrix = lb.transform(y_new)
 
-
-                kfold = StratifiedKFold(n_splits = 3, shuffle = True, random_state = 0)
+                # kfold = StratifiedKFold(n_splits = 3, shuffle = True, random_state = 0)
 
                 results_dict = {}
 
+                # Create 2d and 1d matrices including only instances in the subset with more balanced classes
                 # 2d matrix
                 y_matrix_mask_include = y_matrix[mask_include, :]
                 # this is 1d matrix
                 y_index_mask_include = np.argmax(y_matrix[mask_include, :], axis = 1)
 
-                # print(y_matrix_mask_include.shape)
-                # print(y_index_mask_include.shape)
+                clf_all_dict = {key:[] for key in model_keys}
+                metrics_all_dict = {key:[] for key in model_keys}
+                prediction_dict =  {key:[] for key in model_keys}
 
-                # list of algorithms
+                prediction_all_dict =  {key:[] for key in model_keys}
 
-                model_keys = ['lr', 'lda']
+                true_positive_driveby_positive_window_dict = {key:[] for key in model_keys}
+                false_positive_driveby_positive_window_dict = {key:[] for key in model_keys}
+                false_positive_driveby_negative_window_dict = {key:[] for key in model_keys}
 
-                clf_all_dict = {key:[] for key in ['lr', 'lda']}
-                metrics_all_dict = {key:[] for key in ['lr', 'lda']}
-                prediction_dict =  {key:[] for key in ['lr', 'lda']}
+                recall_positive_window_dict = {key:[] for key in model_keys}
+                incorrect_prediction_rate_positive_window_dict = {key:[] for key in model_keys}
+                false_positive_rate_negative_window_dict = {key:[] for key in model_keys}
+
+                confusion_matrix_dict =  {key:[] for key in model_keys}
 
                 indices = {'test':[], 'train':[]}
 
                 # set test and training split
                 skf = StratifiedKFold(n_splits=2)
                 split_index = 0
-                for indices_test, indices_train in skf.split(X[mask_include, :], y[mask_include, 0]):
+                for indices_test, indices_train in skf.split(X[mask_include, :], y_new[mask_include]):
 
                     indices['test'].append(indices_test)
                     indices['train'].append(indices_train)
@@ -244,16 +272,30 @@ for kS_index, kS in enumerate(kS_list):
 
                     for model_index, model_name in enumerate( model_keys ):
 
+                        print(' ')
+                        print(' ')
+
                         # random forest
                         if model_name == 'rf_0':
-                            model =  RandomForestClassifier(n_estimators = 100, random_state=0, verbose = 1, n_jobs = 6)
+                            model =  RandomForestClassifier(n_estimators = 100, random_state=0, verbose = 1, n_jobs = 2)
                         elif model_name == 'nn_4layer':
                             # simple neural networks with some dropoff (0.2)
-                            model = KerasClassifier(build_fn = create_neural_network_4layer_model, input_size = X.shape[1], output_size = y_matrix.shape[1], nb_epoch = 100, batch_size = 500, verbose = 1)
+                            # model = KerasClassifier(build_fn = create_neural_network_4layer_model,\
+                            #                         epochs = 50, batch_size = 5000, verbose = 1)
+                            model = KerasClassifier(build_fn = create_neural_network_4layer_model,\
+                                                    input_size = X.shape[1], output_size = y_matrix.shape[1], \
+                                                    epochs = 20, batch_size = 5000, verbose = 1)
+
                         elif model_name == 'nn_5layer':
-                            model = KerasClassifier(build_fn = create_neural_network_5layer_model, input_size = X.shape[1], output_size = y_matrix.shape[1], nb_epoch = 100, batch_size = 500, verbose = 1)
+                            # 5 layer neural network
+                            # model = KerasClassifier(build_fn = create_neural_network_5layer_model, \
+                            #                         epoch = 50, batch_size = 5000, verbose = 1)
+                            model = KerasClassifier(build_fn = create_neural_network_5layer_model, \
+                                                    input_size = X.shape[1], output_size = y_matrix.shape[1], \
+                                                    epochs = 20, batch_size = 5000, verbose = 1)
+
                         elif model_name == 'lr':
-                            model = LogisticRegression(n_jobs=6)
+                            model = LogisticRegression()
                         elif model_name == 'lda':
                             model = LinearDiscriminantAnalysis()
                         elif model_name == 'gb':
@@ -264,60 +306,169 @@ for kS_index, kS in enumerate(kS_list):
 
                         print('Model Name: {}'.format(model_name))
 
-                        # Does not work with neural network
+                        # The cross_val_score oes not work with neural network and also doesn't save models so
+                        # don't use this for now.
                         if 'nn' not in model_name:
                             # # results = cross_val_score(clf_dict[model_name], X[mask_include,:], y_matrix[mask_include,:], cv=kfold)
                             # results_dict[model_name] = cross_val_score(clf_dict[model_name], X[mask_include, :][:number_training_instances_cross_val, :], \
                             #                                            y_index_mask_include[:number_training_instances_cross_val],\
                             #                                            cv=kfold)
 
+                            t0 = time.time()
                             # results = cross_val_score(clf_dict[model_name], X[mask_include,:], y_matrix[mask_include,:], cv=kfold)
                             clf_all_dict[model_name][split_index].fit(X[mask_include, :][indices_train, :], \
                                                      y_index_mask_include[indices_train])
+                            print('Time to fit: {}'.format(time.time() - t0))
 
-                            prediction_dict[model_name][split_index].append( clf_all_dict[model_name][split_index].predict(X[mask_include,:]))
+                            t0 = time.time()
+
+                            prediction_dict[model_name].append( clf_all_dict[model_name][split_index].predict(X[mask_include,:]))
+                            # predict for all acquisitions
+                            prediction_all_dict[model_name].append( clf_all_dict[model_name][split_index].predict(X))
+
+
+                            print('Time to predict: {}'.format(time.time() - t0))
+
 
                         else:
-                            clf_all_dict[model_name][split_index].fit(X[mask_include, :][indices_train, :], \
-                                                         y_matrix_mask_include[indices_train,:])
-                            prediction_dict[model_name][split_index].append( clf_all_dict[model_name][split_index].predict(X[mask_include,:]))
+                            t0 = time.time()
 
-                        metrics[model_name] = {}
+                            clf_all_dict[model_name][split_index].fit(X[mask_include, :][indices_train, :], \
+                                                         y_matrix_mask_include[indices_train,:].astype(float))
+                            print('Time to fit: {}'.format(time.time() - t0))
+
+                            t0 = time.time()
+
+                            prediction_dict[model_name].append( clf_all_dict[model_name][split_index].model.predict(X[mask_include,:]))
+
+                            # predict for all acquisitions
+                            prediction_all_dict[model_name].append( clf_all_dict[model_name][split_index].model.predict(X))
+
+                            print('Time to predict: {}'.format(time.time() - t0))
+
+
+                        metrics = {}
 
                         if 'nn' not in model_name:
-                            metrics[model_name]['accuracy'] = accuracy_score(y_index_mask_include, prediction_dict[model_name][split_index])
-                            metrics[model_name]['f1'] = f1_score(y_index_mask_include, prediction_dict[model_name][split_index], average = 'micro')
-                            metrics[model_name]['recall'] = recall_score(y_index_mask_include, prediction_dict[model_name][split_index], average = 'micro')
-                            metrics[model_name]['precision'] = precision_score(y_index_mask_include, prediction_dict[model_name][split_index], average = 'micro')
-                        else:
-                            prediction_arg_max = np.argmax(prediction_dict[model_name][split_index], axis = 1)
-                            metrics[model_name]['accuracy'] = accuracy_score(y_index_mask_include, prediction_arg_max)
-                            metrics[model_name]['f1'] = f1_score(y_index_mask_include, prediction_arg_max, average = 'micro')
-                            metrics[model_name]['recall'] = recall_score(y_index_mask_include, prediction_arg_max, average = 'micro')
-                            metrics[model_name]['precision'] = precision_score(y_index_mask_include, prediction_arg_max,  average = 'micro')
+                            prediction_arg_max = prediction_dict[model_name][split_index][indices_test]
 
-                            
+                            # metrics['accuracy'] = accuracy_score(y_index_mask_include[indices_test], prediction_dict[model_name][split_index][indices_test])
+                            # metrics['f1'] = f1_score(y_index_mask_include[indices_test], prediction_dict[model_name][split_index][indices_test], average = 'micro')
+                            # metrics['recall'] = recall_score(y_index_mask_include[indices_test], prediction_dict[model_name][split_index][indices_test], average = 'micro')
+                            # metrics['precision'] = precision_score(y_index_mask_include[indices_test], prediction_dict[model_name][split_index][indices_test], average = 'micro')
+                        else:
+                            prediction_arg_max = np.argmax(prediction_dict[model_name][split_index], axis = 1)[indices_test]
+
+                        metrics['accuracy'] = accuracy_score(y_index_mask_include[indices_test], prediction_arg_max)
+                        metrics['f1'] = f1_score(y_index_mask_include[indices_test], prediction_arg_max, average = 'micro')
+                        metrics['recall'] = recall_score(y_index_mask_include[indices_test], prediction_arg_max, average = 'micro')
+                        metrics['precision'] = precision_score(y_index_mask_include[indices_test], prediction_arg_max,  average = 'micro')
+
+                        metrics_all_dict[model_name].append(metrics)
+                        # print out the metrics
+                        for key in ['accuracy', 'recall', 'precision', 'f1']:
+                            print('{}: {}'.format(key, metrics[key]))
+
+                        # print confusion matrix
+                        confusion_matrix_dict[model_name].append(  confusion_matrix( y_index_mask_include[indices_test], prediction_arg_max  ) )
+
+                        # print(confusion_matrix_dict[model_name][split_index])
+
+                        # calculate the actual drive performance
+                        # detector source
+                        # misidentified source
+                        # fall positive (in section leading up to the source
+
+                        # DANGER - this should be passed on somehow
+                        number_acquisitions_save = 25
+
+                        negative_window = [0,10]
+                        positive_window = [15,24]
+
+                        number_driveby_instances = y_new.shape[0]/number_acquisitions_save
+
+                        # prediction_driveby = np.zeros(number_driveby_instances)
+                        prediction_driveby_positive_window = []
+                        truth_driveby_positive_window = np.zeros(number_driveby_instances)
+
+                        prediction_driveby_negative_window = []
+                        truth_driveby_negative_window = np.zeros(number_driveby_instances)
+
+                        true_positive_driveby = np.zeros(number_driveby_instances)
+
+                        true_positive_driveby_positive_window = np.zeros(number_driveby_instances).astype(bool)
+                        false_positive_driveby_positive_window = np.zeros(number_driveby_instances).astype(bool)
+                        false_positive_driveby_negative_window = np.zeros(number_driveby_instances).astype(bool)
+
+                        # prediction = copy.copy(prediction_all_dict[model_name][split_index])
+                        if 'nn' not in model_name:
+                            prediction_arg_max = copy.copy(prediction_all_dict[model_name][split_index])
+                        else:
+
+                            nn_threshold = 0.25
+                            prediction_arg_max = copy.copy(np.argmax(prediction_all_dict[model_name][split_index], axis = 1))
+                            # set those with lower NN output values to 0
+                            cutt = prediction_all_dict[model_name][split_index].max(1) < nn_threshold
+                            prediction_arg_max[cutt] = 0
+
+                        for drive_by_index in xrange(number_driveby_instances):
+
+                            # start and stop of the drive by
+                            start_1 = drive_by_index * number_acquisitions_save
+                            stop_1 = start_1 + number_acquisitions_save
+
+                            truth_driveby_positive_window[drive_by_index] = np.max(y_new[start_1:stop_1][positive_window[0]:positive_window[1]]  )
+                            prediction_driveby_positive_window.append(Counter(prediction_arg_max[start_1:stop_1][positive_window[0]:positive_window[1]]))
+
+                            truth_driveby_negative_window[drive_by_index] = np.max(y_new[start_1:stop_1][negative_window[0]:negative_window[1]])
+                            prediction_driveby_negative_window.append(Counter(prediction_arg_max[start_1:stop_1][negative_window[0]:negative_window[1]]))
+
+                            prediction_keys = prediction_driveby_positive_window[drive_by_index].keys()
+
+                            true_positive_driveby_positive_window[drive_by_index] = truth_driveby_positive_window[drive_by_index] in prediction_keys
+
+                            # set of prediction labels
+                            temp1 = set(prediction_keys)
+                            # set of truth labels
+                            # - append 0 because we don't consider predictions as no-source to be necessarily wrong
+                            temp2 = set([truth_driveby_positive_window[drive_by_index], 0.0])
+
+                            incorrect_predictions_positive_windows = list(temp1.difference(temp2))
+
+                            false_positive_driveby_positive_window[drive_by_index] = len(incorrect_predictions_positive_windows) > 0
+
+                            # let's examine the negative window - before the source
+                            prediction_keys_negative_window = prediction_driveby_negative_window[drive_by_index].keys()
+
+                            # set of prediction labels
+                            temp1 = set(prediction_keys_negative_window)
+                            # set of truth labels
+                            # - append 0 because we don't consider predictions as no-source to be necessarily wrong
+                            temp2 = set([truth_driveby_negative_window[drive_by_index], 0.0])
+
+                            incorrect_predictions_negative_windows = list(temp1.difference(temp2))
+
+                            false_positive_driveby_negative_window[drive_by_index] = len(incorrect_predictions_negative_windows) > 0
+
+                        recall_positive_window = true_positive_driveby_positive_window.sum() / float(len(true_positive_driveby_positive_window))
+                        incorrect_prediction_rate_positive_window = false_positive_driveby_positive_window.sum() / float(len(false_positive_driveby_positive_window))
+                        false_positive_rate_negative_window = false_positive_driveby_negative_window.sum() / float(len(false_positive_driveby_negative_window))
+
+
+                        print('drive by recall_positive_window: {}'.format(recall_positive_window))
+                        print('drive by incorrect_prediction_rate_positive_window: {}'.format(incorrect_prediction_rate_positive_window))
+                        print('drive by false_positive_rate_negative_window: {}'.format(false_positive_rate_negative_window))
+
+                        # save the values
+                        true_positive_driveby_positive_window_dict[model_name].append(true_positive_driveby_positive_window)
+                        false_positive_driveby_positive_window_dict[model_name].append(false_positive_driveby_positive_window)
+                        false_positive_driveby_negative_window_dict[model_name].append(false_positive_driveby_negative_window)
+
+                        recall_positive_window_dict[model_name].append(recall_positive_window)
+                        incorrect_prediction_rate_positive_window_dict[model_name].append(incorrect_prediction_rate_positive_window)
+                        false_positive_rate_negative_window_dict[model_name].append(false_positive_rate_negative_window)
+
                     split_index += 1
-                # prediction_dict = {}
-                #
-                # for model_index, model_name in enumerate(clf_dict.keys()):
-                #     print('Model Name: {}'.format(model_name))
-                #     if 'nn' not in model_name:
-                #         prediction_dict[model_name] = clf_dict[model_name].predict(X[mask_include,:])
-                #
-                # metrics = {}
-                #
-                # for model_index, model_name in enumerate(prediction_dict.keys()):
-                #     print('Model Name: {}'.format(model_name))
-                #
-                #     metrics[model_name] = {}
-                #     metrics[model_name]['accuracy'] = accuracy_score(y_index_mask_include, prediction_dict[model_name])
-                #     metrics[model_name]['f1'] = f1_score(y_index_mask_include, prediction_dict[model_name], average = 'micro')
-                #     metrics[model_name]['recall'] = recall_score(y_index_mask_include, prediction_dict[model_name], average = 'micro')
-                #     metrics[model_name]['precision'] = precision_score(y_index_mask_include, prediction_dict[model_name], average = 'micro')
-                #
-                #     for metric_name in metrics[model_name].keys():
-                #         print('{}: {}'.format(metric_name, metrics[model_name][metric_name]))
 
                 del X
                 del y
@@ -325,13 +476,28 @@ for kS_index, kS in enumerate(kS_list):
 
                 with open(os.path.join(models_dataset_path, filtered_features_filename.replace('FilteredFeaturesDataset', 'Models')), 'wb') as fid:
                     output = {}
-                    output['metrics'] = metrics
-                    output['cross_val_results'] = results_dict
-                    output['models'] = clf_dict
+                    output['metrics'] = metrics_all_dict
+                    output['models'] = clf_all_dict
                     output['prediction_dict'] = prediction_dict
-                    output['prediction_dict'] = prediction_dict
+                    output['prediction_all_dict'] = prediction_all_dict
+
+                    output['indices'] = indices
+
                     output['mask_include'] = mask_include
 
+                    output['y_new_buffered'] = y_new_buffered
+
+                    output['y_matrix_mask_include'] = y_matrix_mask_include
+
+                    output['y_index_mask_include'] = y_index_mask_include
+
+                    output['true_positive_driveby_positive_window_dict'] = true_positive_driveby_positive_window_dict
+                    output['false_positive_driveby_positive_window_dict'] = false_positive_driveby_positive_window_dict
+                    output['false_positive_driveby_negative_window_dict'] = false_positive_driveby_negative_window_dict
+
+                    output['recall_positive_window_dict'] = recall_positive_window_dict
+                    output['incorrect_prediction_rate_positive_window_dict'] = incorrect_prediction_rate_positive_window_dict
+                    output['false_positive_rate_negative_window_dict'] = false_positive_rate_negative_window_dict
 
                     cPickle.dump(output, fid, 2)
 

@@ -30,7 +30,11 @@ plot_colors = ['k', 'r', 'b', 'g', 'm', 'c', 'y']
 
 # Define all the paths
 # base_dir = '/Volumes/Lacie2TB/BAA/Data'
-base_dir = os.path.join(os.environ['HOME'], 'injection_resources')
+
+if 'INJECTION_RESOURCES' in os.environ:
+    base_dir = os.environ['INJECTION_RESOURCES']
+else:
+    base_dir = os.path.join(os.environ['HOME'], 'injection_resources')
 plot_dir = os.path.join(base_dir, 'plots', time.strftime('%Y%m%d'))
 training_datasets_root_path = os.path.join(base_dir, 'training_datasets')
 processed_datasets_root_path = os.path.join(base_dir, 'processed_datasets')
@@ -81,7 +85,6 @@ number_samples = spectrum.shape[2]
 # let's focus on a single detector
 detector_index = 0
 
-
 # create instance of Dan's wavelet snr generator
 
 number_bins = 1024
@@ -89,9 +92,9 @@ number_bins = 512
 
 # this defines the grid
 kS_list = [1, 2, 4, 8]
-gap_list = [2, 4, 8]
+# gap_list = [2, 4, 8]
+gap_list = [16,]
 kB_list = [16, 32]
-
 
 if number_bins == 512:
     number_wavelet_bins = 4107
@@ -151,30 +154,35 @@ training_index = 0
 
 wavelet_index = 530
 
-# for kS in kS_list:
-#
-#     for kB in kB_list:
-#
-#         for gap in gap_list:
-#
-#             parameter_string = 'kB: %d, gap: %d, kS: %d' %(kB, gap, kS)
-#
-#             plot_name_suffix = 'kS_%02d__kB_%02d__gap_%02d' %(kS, kB, gap)
-#
-#             f_snr = wavelet_core.isoPerceptron.isoSNRFeature(number_bins, kB, gap, kS)
-#
-#             # loop over all acquisitions of the pass-by
-#             t0 = time.time()
-#
-#             for sample_index in xrange(number_samples):
-#                 if sample_index % 20 == 0:
-#                     print('sample index {}/{}'.format(sample_index, number_samples))
-#                 SNR_background_matrix[:,sample_index] = f_snr.ingest(background[training_index,detector_index, sample_index,:].astype(float))
-#
-#             # save the snr function
-#             with open(os.path.join(snr_path, 'f_snr__%s.pkl' %plot_name_suffix), 'wb') as fid:
-#                 cPickle.dump(f_snr, fid, 2)
-#
+for kS in kS_list:
+
+    for kB in kB_list:
+
+        for gap in gap_list:
+
+            parameter_string = 'kB: %d, gap: %d, kS: %d' %(kB, gap, kS)
+
+            plot_name_suffix = 'kS_%02d__kB_%02d__gap_%02d' %(kS, kB, gap)
+
+            print(plot_name_suffix)
+
+            f_snr = wavelet_core.isoPerceptron.isoSNRFeature(number_bins, kB, gap, kS)
+
+
+            # loop over all acquisitions of the pass-by
+            t0 = time.time()
+
+            for sample_index in xrange(number_samples):
+                if sample_index % 20 == 0:
+                    print('sample index {}/{}'.format(sample_index, number_samples))
+                SNR_background_matrix[:,sample_index] = f_snr.ingest(background[training_index,detector_index, sample_index,:].astype(float))
+
+            # save the snr function
+            with open(os.path.join(snr_path, 'f_snr__%s.pkl' %plot_name_suffix), 'wb') as fid:
+                cPickle.dump(f_snr, fid, 2)
+
+            print('Saved:{}'.format(os.path.join(snr_path, 'f_snr__%s.pkl' %plot_name_suffix)))
+
 #             for sample_index in xrange(number_samples_save):
 #
 #                 acquisition_index = number_samples_skip + sample_index
@@ -237,103 +245,103 @@ wavelet_index = 530
 #                 plt.close()
 
 
-training_index_list = [0, 3, 5, 7, 9]
-
-
-for kS_index, kS in enumerate(kS_list):
-
-    for kB_index, kB in enumerate(kB_list):
-
-        for gap_index, gap in enumerate(gap_list):
-
-            # calculate the SNR for this pass-by instance
-            for training_index_index, training_index in enumerate(training_index_list):
-
-                parameter_string = 'kB: %d, gap: %d, kS: %d' %(kB, gap, kS)
-
-                snr_name_suffix = 'kS_%02d__kB_%02d__gap_%02d' %(kS, kB, gap)
-
-                # f_snr = wavelet_core.isoPerceptron.isoSNRFeature(number_bins, kB, gap, kS)
-
-                # save the snr
-                with open(os.path.join(snr_path, 'f_snr__%s.pkl' %plot_name_suffix), 'rb') as fid:
-                    f_snr = cPickle.load(fid)
-
-                # loop over all acquisitions of the pass-by
-                t0 = time.time()
-
-                # for sample_index in xrange(number_samples):
-                #     if sample_index % 10 == 0:
-                #         print('sample index {}/{}'.format(sample_index, number_samples))
-                #     SNR_background_matrix[:,sample_index] = f_snr.ingest(background[training_index,detector_index, sample_index,:].astype(float))
-
-                # for sample_index in xrange(number_samples):
-                #     if sample_index%10 == 0:
-                #         print('sample index {}/{}'.format(sample_index, number_samples))
-                #     SNR_matrix[:,sample_index] = f_snr.ingest(spectrum[training_index,detector_index, sample_index,:].astype(float))
-
-                for sample_index in xrange(number_samples_save):
-
-                    acquisition_index = number_samples_skip + sample_index
-                    if sample_index % 10 == 0:
-                        print('sample index {}/{}'.format(sample_index, number_samples))
-                    SNR_matrix[:, sample_index] = f_snr.ingest(
-                        spectrum[training_index, detector_index, acquisition_index, :].astype(float))
-                print('time elapsed: %3.3f' % (time.time() - t0))
-
-                plot_name_suffix = 'instance_%05d__kS_%02d__kB_%02d__gap_%02d' %(kS, kB, gap, training_index)
-
-                # plot of 2d spectra background
-
-                if (kS_index == 0) and (kB_index == 0) and (gap_index == 0):
-                    plt.figure()
-                    plt.pcolor(background[training_index,detector_index, :,1:].T)
-
-                    plt.title('Counts Background, %s' %parameter_string)
-                    plt.xlabel('Acquisition', fontsize  = 16)
-                    plt.ylabel('Energy Bin', fontsize  = 16)
-                    plt.colorbar()
-
-                    plt.savefig(os.path.join(plot_dir, '%s__Background__%s.png' %(training_dataset_filename_prefix, plot_name_suffix)))
-                    plt.close()
-
-
-                plt.figure()
-                plt.pcolor(SNR_matrix[:,:])
-
-                plt.title('SNR Signal + Background, %s' %parameter_string)
-                plt.xlabel('Acquisition', fontsize  = 16)
-                plt.ylabel('SNR Bin', fontsize  = 16)
-                plt.colorbar()
-
-                plt.savefig(os.path.join(plot_dir, '%s__SNR_Signal_Background__%s.png' %(training_dataset_filename_prefix, plot_name_suffix)))
-                plt.close()
-
-
-                # # SNR background
-                #
-                # plt.figure()
-                # plt.pcolor(SNR_background_matrix[:,:])
-                #
-                # plt.title('SNR Background, %s' %parameter_string)
-                # plt.xlabel('Acquisition', fontsize  = 16)
-                # plt.ylabel('SNR Bin', fontsize  = 16)
-                # plt.colorbar()
-                #
-                # plt.savefig(
-                #     os.path.join(plot_dir, '%s__SNR_Background__%s.png' % (training_dataset_filename_prefix, plot_name_suffix)))
-                # plt.close()
-
-
-                plt.figure()
-                acquisition_indices = np.arange(SNR_background_matrix.shape[1])
-                plt.plot(acquisition_indices, SNR_background_matrix[wavelet_index,:])
-
-                acquisition_indices = np.arange(number_samples_skip, number_samples_skip+number_samples_save)
-                plt.plot(acquisition_indices, SNR_matrix[wavelet_index,:])
-                plt.title('SNR, %s' %parameter_string)
-                plt.xlabel('Acquisition', fontsize  = 16)
-
-                plt.savefig(
-                    os.path.join(plot_dir, '%s__SNR__waveletindex_%04d__%s.png' % (training_dataset_filename_prefix, wavelet_index, plot_name_suffix)))
-                plt.close()
+# training_index_list = [0, 3, 5, 7, 9]
+#
+#
+# for kS_index, kS in enumerate(kS_list):
+#
+#     for kB_index, kB in enumerate(kB_list):
+#
+#         for gap_index, gap in enumerate(gap_list):
+#
+#             # calculate the SNR for this pass-by instance
+#             for training_index_index, training_index in enumerate(training_index_list):
+#
+#                 parameter_string = 'kB: %d, gap: %d, kS: %d' %(kB, gap, kS)
+#
+#                 snr_name_suffix = 'kS_%02d__kB_%02d__gap_%02d' %(kS, kB, gap)
+#
+#                 # f_snr = wavelet_core.isoPerceptron.isoSNRFeature(number_bins, kB, gap, kS)
+#
+#                 # save the snr
+#                 with open(os.path.join(snr_path, 'f_snr__%s.pkl' %plot_name_suffix), 'rb') as fid:
+#                     f_snr = cPickle.load(fid)
+#
+#                 # loop over all acquisitions of the pass-by
+#                 t0 = time.time()
+#
+#                 # for sample_index in xrange(number_samples):
+#                 #     if sample_index % 10 == 0:
+#                 #         print('sample index {}/{}'.format(sample_index, number_samples))
+#                 #     SNR_background_matrix[:,sample_index] = f_snr.ingest(background[training_index,detector_index, sample_index,:].astype(float))
+#
+#                 # for sample_index in xrange(number_samples):
+#                 #     if sample_index%10 == 0:
+#                 #         print('sample index {}/{}'.format(sample_index, number_samples))
+#                 #     SNR_matrix[:,sample_index] = f_snr.ingest(spectrum[training_index,detector_index, sample_index,:].astype(float))
+#
+#                 for sample_index in xrange(number_samples_save):
+#
+#                     acquisition_index = number_samples_skip + sample_index
+#                     if sample_index % 10 == 0:
+#                         print('sample index {}/{}'.format(sample_index, number_samples))
+#                     SNR_matrix[:, sample_index] = f_snr.ingest(
+#                         spectrum[training_index, detector_index, acquisition_index, :].astype(float))
+#                 print('time elapsed: %3.3f' % (time.time() - t0))
+#
+#                 plot_name_suffix = 'instance_%05d__kS_%02d__kB_%02d__gap_%02d' %(kS, kB, gap, training_index)
+#
+#                 # plot of 2d spectra background
+#
+#                 if (kS_index == 0) and (kB_index == 0) and (gap_index == 0):
+#                     plt.figure()
+#                     plt.pcolor(background[training_index,detector_index, :,1:].T)
+#
+#                     plt.title('Counts Background, %s' %parameter_string)
+#                     plt.xlabel('Acquisition', fontsize  = 16)
+#                     plt.ylabel('Energy Bin', fontsize  = 16)
+#                     plt.colorbar()
+#
+#                     plt.savefig(os.path.join(plot_dir, '%s__Background__%s.png' %(training_dataset_filename_prefix, plot_name_suffix)))
+#                     plt.close()
+#
+#
+#                 plt.figure()
+#                 plt.pcolor(SNR_matrix[:,:])
+#
+#                 plt.title('SNR Signal + Background, %s' %parameter_string)
+#                 plt.xlabel('Acquisition', fontsize  = 16)
+#                 plt.ylabel('SNR Bin', fontsize  = 16)
+#                 plt.colorbar()
+#
+#                 plt.savefig(os.path.join(plot_dir, '%s__SNR_Signal_Background__%s.png' %(training_dataset_filename_prefix, plot_name_suffix)))
+#                 plt.close()
+#
+#
+#                 # # SNR background
+#                 #
+#                 # plt.figure()
+#                 # plt.pcolor(SNR_background_matrix[:,:])
+#                 #
+#                 # plt.title('SNR Background, %s' %parameter_string)
+#                 # plt.xlabel('Acquisition', fontsize  = 16)
+#                 # plt.ylabel('SNR Bin', fontsize  = 16)
+#                 # plt.colorbar()
+#                 #
+#                 # plt.savefig(
+#                 #     os.path.join(plot_dir, '%s__SNR_Background__%s.png' % (training_dataset_filename_prefix, plot_name_suffix)))
+#                 # plt.close()
+#
+#
+#                 plt.figure()
+#                 acquisition_indices = np.arange(SNR_background_matrix.shape[1])
+#                 plt.plot(acquisition_indices, SNR_background_matrix[wavelet_index,:])
+#
+#                 acquisition_indices = np.arange(number_samples_skip, number_samples_skip+number_samples_save)
+#                 plt.plot(acquisition_indices, SNR_matrix[wavelet_index,:])
+#                 plt.title('SNR, %s' %parameter_string)
+#                 plt.xlabel('Acquisition', fontsize  = 16)
+#
+#                 plt.savefig(
+#                     os.path.join(plot_dir, '%s__SNR__waveletindex_%04d__%s.png' % (training_dataset_filename_prefix, wavelet_index, plot_name_suffix)))
+#                 plt.close()

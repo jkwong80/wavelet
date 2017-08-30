@@ -14,10 +14,7 @@ print(os.path.realpath(__file__))
 print(file_directory)
 sys.path.append(os.path.join(file_directory, ".."))
 
-
-
 import wavelet_core.isoPerceptron
-
 
 plot_colors = ['k', 'r', 'b', 'g', 'm', 'c', 'y']
 
@@ -35,9 +32,7 @@ plot_colors = ['k', 'r', 'b', 'g', 'm', 'c', 'y']
 # # LOAD DATA FROM SIMULATION FILE
 # training_set_id = '9a1be8d8-c573-4a68-acf8-d7c7e2f9830f'
 
-
 # open the file
-
 
 def ProcessTrainingDataset(param):
 
@@ -251,7 +246,7 @@ def CalculateTargetValues(filename_input, filename_output):
         f.create_dataset('source_index', data = training_dataset['source_index'])
         f.create_dataset('source_name_list', data = training_dataset['source_name_list'])
 
-
+        source_name_list = training_dataset['source_name_list']
 
 
         isotope_string_list = []
@@ -397,7 +392,6 @@ def CreateFilteredFeaturesFile(param):
         source_signal_matrix_all[start:stop,:] = source_signal_total_counts_all_detectors_matrix[instance_index, :, start0:stop0].T
 
     X = SNR_matrix_all[:,mask_filtered_features]
-
     y = source_signal_matrix_all[:, :]
 
 
@@ -417,11 +411,15 @@ def CreateFilteredFeaturesFile(param):
     print('Number of isotopes: {}'.format(len(isotope_string_set)))
 
     # map from isotope string to y value
+    # in the train_classifiers.py script I have the isotpe index start at 1 because the 0 is background - I don't do that
+    # here; first isotope is 0
     isotope_mapping = {}
     for isotope_string_index, isotope_string in enumerate(isotope_string_list):
-        isotope_mapping[isotope_string_index] = np.where(isotope_string_set == isotope_string)[0][0] + 1
-    # this the
+        isotope_mapping[isotope_string_index] = np.where(isotope_string_set == isotope_string)[0][0]
+    # this the isotope index
     y_isotope = np.zeros(y.shape[0]).astype(np.int16)
+    # this a 2d matrix [instance, isotope id] of the isotope counts.  should only be one non-zero value per row (as
+    # we are simulating single source values)
     y_isotope_count = np.zeros((y.shape[0], len(isotope_string_set) ))
 
     count_threshold = 50

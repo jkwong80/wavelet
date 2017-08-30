@@ -52,8 +52,6 @@ if not os.path.exists(snr_root_path):
 
 snr_path = os.path.join(snr_root_path, '20170824')
 
-
-
 # training_dataset_processor.ProcessTrainingDataset(param)
 
 

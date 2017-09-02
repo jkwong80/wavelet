@@ -105,20 +105,18 @@ if not os.path.exists(models_dataset_path):
 # lost of parameters to cycle through
 kS_list = [2, 4, 8]
 
-kB_list = [16]
+kB_list = [16, 32]
 gap_list = [4]
 feature_indices_name_list = ['mask_filtered_features_2', 'mask_filtered_features_3']
 
 # list of algorithms
 # model_keys = ['lr', 'lda']
-model_keys = ['lda', 'nn_4layer']
-
-
+model_keys = ['lda', 'nn_4layer', 'rf_0']
 
 # # number to load from file
 load_subset = True
 # load_subset = False
-number_instance_load = 50000
+number_instance_load = 500000
 
 # number of values to use in the cross validation
 # number_training_instances_cross_val = 10000
@@ -155,6 +153,10 @@ for kS_index, kS in enumerate(kS_list):
 
                 # read in the file in the filtered features file
                 # does doesn't have the final target values files
+
+                if not os.path.exists(filtered_features_fullfilename):
+                    print('Does not exist. Skipping: {}'.format(filtered_features_fullfilename))
+                    continue
 
                 with h5py.File(filtered_features_fullfilename, 'r') as f:
                     if load_subset:
@@ -204,32 +206,35 @@ for kS_index, kS in enumerate(kS_list):
                     y_new_buffered[(index + 1):(index + 1 + buffer_size[kS])] = y_new_buffered[index + 1]
                 # now use y_new_buffered for almost everything
 
+                # temporary - go back to it for comparison
+                y_new_buffered = y_new
+
                 # Balance the classes (less background)
 
                 # determine the number of
-                number_background_instances_include = 100 * int(np.bincount(y_new)[1:].mean()/100)
+                number_background_instances_include = 100 * int(np.bincount(y_new_buffered)[1:].mean()/100)
                 # find all instances that are class is 0 (background)
-                cutt = y_new == 0
+                cutt = y_new_buffered == 0
                 indices = np.where(cutt)[0]
-                cutt = np.zeros(len(y_new)) == 1
+                cutt = np.zeros(len(y_new_buffered)) == 1
                 cutt[indices[number_background_instances_include:]] = True
 
                 # this is the maske of all instances that we will use for training and testing
                 mask_include = ~cutt
 
                 print('Original Count of classes:')
-                print(np.bincount(y_new))
-                print('total number of instances: {}'.format(len(y_new)))
+                print(np.bincount(y_new_buffered))
+                print('total number of instances: {}'.format(len(y_new_buffered)))
 
                 print('Count of classes after removeing a lot of background instances:')
-                print(np.bincount(y_new[mask_include]))
-                print('total number of instances: {}'.format(len(y_new[mask_include])))
+                print(np.bincount(y_new_buffered[mask_include]))
+                print('total number of instances: {}'.format(len(y_new_buffered[mask_include])))
 
                 lb = preprocessing.LabelBinarizer()
-                lb.fit(y_new)
+                lb.fit(y_new_buffered)
                 lb.classes_
 
-                y_matrix = lb.transform(y_new)
+                y_matrix = lb.transform(y_new_buffered)
 
                 # kfold = StratifiedKFold(n_splits = 3, shuffle = True, random_state = 0)
 
@@ -262,7 +267,7 @@ for kS_index, kS in enumerate(kS_list):
                 # set test and training split
                 skf = StratifiedKFold(n_splits=2)
                 split_index = 0
-                for indices_test, indices_train in skf.split(X[mask_include, :], y_new[mask_include]):
+                for indices_test, indices_train in skf.split(X[mask_include, :], y_new_buffered[mask_include]):
 
                     indices['test'].append(indices_test)
                     indices['train'].append(indices_train)
@@ -277,14 +282,14 @@ for kS_index, kS in enumerate(kS_list):
 
                         # random forest
                         if model_name == 'rf_0':
-                            model =  RandomForestClassifier(n_estimators = 100, random_state=0, verbose = 1, n_jobs = 2)
+                            model =  RandomForestClassifier(n_estimators = 100, random_state=0, verbose = 1, n_jobs = 4)
                         elif model_name == 'nn_4layer':
                             # simple neural networks with some dropoff (0.2)
                             # model = KerasClassifier(build_fn = create_neural_network_4layer_model,\
                             #                         epochs = 50, batch_size = 5000, verbose = 1)
                             model = KerasClassifier(build_fn = create_neural_network_4layer_model,\
                                                     input_size = X.shape[1], output_size = y_matrix.shape[1], \
-                                                    epochs = 20, batch_size = 5000, verbose = 1)
+                                                    epochs = 20, batch_size = 10000, verbose = 1)
 
                         elif model_name == 'nn_5layer':
                             # 5 layer neural network
@@ -292,7 +297,7 @@ for kS_index, kS in enumerate(kS_list):
                             #                         epoch = 50, batch_size = 5000, verbose = 1)
                             model = KerasClassifier(build_fn = create_neural_network_5layer_model, \
                                                     input_size = X.shape[1], output_size = y_matrix.shape[1], \
-                                                    epochs = 20, batch_size = 5000, verbose = 1)
+                                                    epochs = 20, batch_size = 10000, verbose = 1)
 
                         elif model_name == 'lr':
                             model = LogisticRegression()
@@ -379,13 +384,20 @@ for kS_index, kS in enumerate(kS_list):
                         # misidentified source
                         # fall positive (in section leading up to the source
 
-                        # DANGER - this should be passed on somehow
+
+                        # inputs
+                        # number_acquisitions_save
+                        # negative_window
+                        # positive_window
+
+
+                        # DANGER - this should be passed on somehow from file - OY
                         number_acquisitions_save = 25
 
                         negative_window = [0,10]
                         positive_window = [15,24]
 
-                        number_driveby_instances = y_new.shape[0]/number_acquisitions_save
+                        number_driveby_instances = y_new_buffered.shape[0]/number_acquisitions_save
 
                         # prediction_driveby = np.zeros(number_driveby_instances)
                         prediction_driveby_positive_window = []
@@ -417,12 +429,15 @@ for kS_index, kS in enumerate(kS_list):
                             start_1 = drive_by_index * number_acquisitions_save
                             stop_1 = start_1 + number_acquisitions_save
 
-                            truth_driveby_positive_window[drive_by_index] = np.max(y_new[start_1:stop_1][positive_window[0]:positive_window[1]]  )
+                            # get the truth and prediction in the window near the source (positive window)
+                            truth_driveby_positive_window[drive_by_index] = np.max(y_new_buffered[start_1:stop_1][positive_window[0]:positive_window[1]]  )
                             prediction_driveby_positive_window.append(Counter(prediction_arg_max[start_1:stop_1][positive_window[0]:positive_window[1]]))
 
-                            truth_driveby_negative_window[drive_by_index] = np.max(y_new[start_1:stop_1][negative_window[0]:negative_window[1]])
+                            # get the truth and prediction in the window before the source (negative window)
+                            truth_driveby_negative_window[drive_by_index] = np.max(y_new_buffered[start_1:stop_1][negative_window[0]:negative_window[1]])
                             prediction_driveby_negative_window.append(Counter(prediction_arg_max[start_1:stop_1][negative_window[0]:negative_window[1]]))
 
+                            # get the isotope index of isotopes prediced in the positive window
                             prediction_keys = prediction_driveby_positive_window[drive_by_index].keys()
 
                             true_positive_driveby_positive_window[drive_by_index] = truth_driveby_positive_window[drive_by_index] in prediction_keys
@@ -455,6 +470,9 @@ for kS_index, kS in enumerate(kS_list):
                         false_positive_rate_negative_window = false_positive_driveby_negative_window.sum() / float(len(false_positive_driveby_negative_window))
 
 
+
+
+
                         print('drive by recall_positive_window: {}'.format(recall_positive_window))
                         print('drive by incorrect_prediction_rate_positive_window: {}'.format(incorrect_prediction_rate_positive_window))
                         print('drive by false_positive_rate_negative_window: {}'.format(false_positive_rate_negative_window))
@@ -474,7 +492,8 @@ for kS_index, kS in enumerate(kS_list):
                 del y
                 # save stuff to file
 
-                with open(os.path.join(models_dataset_path, filtered_features_filename.replace('FilteredFeaturesDataset', 'Models')), 'wb') as fid:
+                output_fullfilename = os.path.join(models_dataset_path, filtered_features_filename.replace('FilteredFeaturesDataset', 'Models'))
+                with open(output_fullfilename, 'wb') as fid:
                     output = {}
                     output['metrics'] = metrics_all_dict
                     output['models'] = clf_all_dict
@@ -485,6 +504,7 @@ for kS_index, kS in enumerate(kS_list):
 
                     output['mask_include'] = mask_include
 
+                    output['y_new'] = y_new
                     output['y_new_buffered'] = y_new_buffered
 
                     output['y_matrix_mask_include'] = y_matrix_mask_include
@@ -500,7 +520,7 @@ for kS_index, kS in enumerate(kS_list):
                     output['false_positive_rate_negative_window_dict'] = false_positive_rate_negative_window_dict
 
                     cPickle.dump(output, fid, 2)
-
+                print('Wrote:{}'.format(output_fullfilename))
 #
 #
 #

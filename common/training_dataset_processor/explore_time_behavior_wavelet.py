@@ -10,74 +10,8 @@ from collections import Counter
 from sklearn.model_selection import StratifiedKFold
 from sklearn import preprocessing
 
-from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score, accuracy_score
-
-# does not work with multidimensional y: mutual_info_regression, mutual_info_classif, f_classif, f_regression
-# works with multidimensional y: chi2
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.linear_model import LogisticRegression
-
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-
-from keras.models import Sequential
-from keras.layers import Dense
-from keras.layers import Dropout
-from keras.wrappers.scikit_learn import KerasClassifier
-from keras.constraints import maxnorm
-from keras.optimizers import SGD
-from sklearn.model_selection import cross_val_score
-from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import StratifiedKFold
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import Pipeline
-from keras import metrics
-
-from sklearn.utils import class_weight
-from scipy.stats import pearsonr
-
 plot_markers = ''
 
-
-def create_neural_network_5layer_model(input_size, output_size):
-# def create_neural_network_5layer_model():
-
-    print('input_size: '.format(input_size))
-    print('output_size: '.format(output_size))
-
-    model = Sequential()
-
-    model.add(Dense(input_size, input_dim=X.shape[1], init='uniform', activation='relu'))
-    model.add(Dropout(0.2))
-    model.add(Dense(400, init='uniform', activation='relu'))
-    model.add(Dropout(0.2))
-    model.add(Dense(200, init='uniform', activation='relu'))
-    model.add(Dropout(0.2))
-    model.add(Dense(100, init='uniform', activation='relu'))
-
-    # model.add(Dense(y_new.shape[1], init='uniform', activation='relu'))
-    model.add(Dense(output_size, init='uniform', activation='relu'))
-
-    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy']) # Fit the model
-    return model
-
-# def create_neural_network_4layer_model():
-def create_neural_network_4layer_model(input_size, output_size):
-
-    print('input_size: '.format(input_size))
-    print('output_size: '.format(output_size))
-    model = Sequential()
-
-    model.add(Dense(input_size, input_dim=X.shape[1], init='uniform', activation='relu'))
-    model.add(Dropout(0.2))
-    model.add(Dense(200, init='uniform', activation='relu'))
-    model.add(Dropout(0.2))
-    model.add(Dense(100, init='uniform', activation='relu'))
-
-    # model.add(Dense(y_new.shape[1], init='uniform', activation='relu'))
-    model.add(Dense(output_size, init='uniform', activation='relu'))
-
-    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy']) # Fit the model
-    return model
 
 
 # open a couple files and append the results
@@ -105,8 +39,8 @@ if not os.path.exists(models_dataset_path):
 # lost of parameters to cycle through
 kS_list = [2, 4, 8]
 
-kB_list = [16]
-gap_list = [4]
+kB_list = [16, 32]
+gap_list = [4, 8, 16]
 feature_indices_name_list = ['mask_filtered_features_2', 'mask_filtered_features_3']
 
 # list of algorithms
@@ -159,6 +93,10 @@ for kS_index, kS in enumerate(kS_list):
 
                 # read in the file in the filtered features file
                 # does doesn't have the final target values files
+
+                if not os.path.exists(filtered_features_fullfilename):
+                    print('Does not exist. Skipping: {}'.format(filtered_features_fullfilename))
+                    continue
 
                 with h5py.File(filtered_features_fullfilename, 'r') as f:
                     if load_subset:
@@ -323,11 +261,13 @@ for kS in np.sort(X_dict.keys()):
     for kB in np.sort( X_dict[kS].keys()):
         for gap in np.sort(X_dict[kS][kB].keys()):
 
-            plt.plot(X_dict[kS][kB][gap][:,wavelet_bounds[0]:wavelet_bounds[1]].sum(1), label = 'kS: {}, kB: {}, gap: {}'.format(kS, kB, gap))
+            if type(X_dict[kS][kB][gap]) != np.ndarray:
+                continue
+            plt.plot(X_dict[kS][kB][gap][:,wavelet_bounds[0]:wavelet_bounds[1]].sum(1), label = 'kS: {}, kB: {}, gap: {}'.format(kS, kB, gap), linewidth = 2, alpha = 0.7)
 
 plt.plot(y[0:2000,:].sum(1), label = 'Target Count Value')
 
-plt.plot(np.argmax(y_matrix_dict[kS][kB][gap], axis=1))
+plt.plot(np.argmax(y_matrix_dict[2][16][4], axis=1))
 plt.xlabel('Instance Index')
 plt.ylabel('Wavelegth Subset Sum')
 plt.legend()

@@ -125,26 +125,28 @@ def ProcessTrainingDataset(param):
             for detector_index in xrange(number_detectors):
 
                 t_detector_loop = time.time()
-
+                # get the signal and background portions
                 signal = training_dataset['injection_spectra'][instance_index, detector_index, :,:]
                 background = training_dataset['background_matrix'][instance_index, detector_index, :,:]
 
+                # only run wavelet thing on the background if specifically asked to do so
                 if param['run_snr_background']:
                     for acquisition_index in xrange(number_acquisitions):
                         SNR_background_matrix[instance_index, detector_index, acquisition_index,:] = f_snr.ingest(
                             background[acquisition_index,:].astype(float))
 
-                # # versions where the whole array was already read into memory
+                # # Wersions where the whole array was already read into memory - this takes up too much memory to run
+                # # multiple instances
                 # for acquisition_index in xrange(number_acquisitions):
                 #     SNR_matrix[instance_index, detector_index, acquisition_index,:] = f_snr.ingest(
                 #         (signal[acquisition_index,:]+background[acquisition_index,:]).astype(float))
 
                 for sample_index in xrange(number_samples_save):
-                    # Get the index in the spectra array
+                    # Get the index in the spectra array; skip a couple samples to save time and space
                     acquisition_index = number_samples_skip + sample_index
                     if sample_index % 20 == 0:
                         print('sample index {}/{}'.format(sample_index, number_samples_save))
-
+                    # dump values straight into hdh5 file
                     SNR_matrix[instance_index, detector_index, sample_index,:] = f_snr.ingest(
                         (signal[acquisition_index,:]+background[acquisition_index,:]).astype(float))
 
@@ -248,7 +250,6 @@ def CalculateTargetValues(filename_input, filename_output):
 
         source_name_list = training_dataset['source_name_list']
 
-
         isotope_string_list = []
 
         for source_name in source_name_list:
@@ -277,7 +278,6 @@ def CalculateTargetValues(filename_input, filename_output):
         temp = np.zeros((number_instances, number_sources, number_acquisitions))
 
         for index in xrange(len(source_index)):
-
             temp[index, int(source_index[index]), :] = signal_total_counts_all_detectors[index,:]
 
         f.create_dataset('source_signal_total_counts_all_detectors_matrix', data = temp)
@@ -309,6 +309,11 @@ def CalculateTargetValues(filename_input, filename_output):
 def CreateFilteredFeaturesFile(param):
 
     """
+        Takes the Processed file and saved a subset of the features to a new file.
+        It also collapses the drive-by acquisition dimension. The output saved is
+        a 2d matrix of size [number of acquisitions to save per drive by * number of drive bys, number of features]
+
+        Of course, this function requires that you have done feature selection and have a set on indices.
 
     :param processed_dataset_fullfilename:
     :param target_values_fullfilename:
@@ -328,6 +333,7 @@ def CreateFilteredFeaturesFile(param):
     acquisitions_skip = param['acquisitions_skip']
     detector_index = param['detector_index']
 
+    # this is the dict key of the feature indices you wan from the feature selection file
     mask_filtered_features = param['mask_filtered_features']
 
     with h5py.File(best_features_fullfilename, 'r') as f:
@@ -339,7 +345,7 @@ def CreateFilteredFeaturesFile(param):
 
     # get the dimensions of the matrices
     dimensions = processed_dataset['SNR_matrix'].shape
-    # number of samples (acquisitions) in the pass-by
+    # number of drive bys
     number_instances = dimensions[0]
     # number of detectors
     number_detectors = dimensions[1]
@@ -441,11 +447,25 @@ def CreateFilteredFeaturesFile(param):
 
         f.create_dataset('mask_filtered_features', data=mask_filtered_features, compression = 'gzip')
 
+        # 8/31/2017 - new stuff - shouldn't break anything
+        f.create_dataset('number_instances', data=number_instances)
+        f.create_dataset('number_samples_save', data=number_samples_save)
+        f.create_dataset('acquisitions_skip', data=acquisitions_skip)
+
+
     print('Wrote: {}'.format(filtered_features_dataset_fullfilename))
 
 
 def ConsolidateFilteredFeatturesFiles(fullfilename_list, output_filename):
+    """
+        Consolidates the filtered features files. Note that this does not check to see if your files are valid.
+        It will crash if the files does not exist.
 
+
+    :param fullfilename_list:
+    :param output_filename:
+    :return:
+    """
     # ############## concatenate separate files  #######################
 
     number_files = len(fullfilename_list)

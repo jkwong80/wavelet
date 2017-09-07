@@ -10,8 +10,7 @@ from collections import Counter
 from sklearn.model_selection import StratifiedKFold
 from sklearn import preprocessing
 
-from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score, accuracy_score
-
+from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score, accuracy_score, roc_curve
 # does not work with multidimensional y: mutual_info_regression, mutual_info_classif, f_classif, f_regression
 # works with multidimensional y: chi2
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
@@ -311,7 +310,7 @@ for kS_index, kS in enumerate(kS_list):
 
                         print('Model Name: {}'.format(model_name))
 
-                        # The cross_val_score oes not work with neural network and also doesn't save models so
+                        # The cross_val_score does not work with neural network and also doesn't save models so
                         # don't use this for now.
                         if 'nn' not in model_name:
                             # # results = cross_val_score(clf_dict[model_name], X[mask_include,:], y_matrix[mask_include,:], cv=kfold)
@@ -384,12 +383,10 @@ for kS_index, kS in enumerate(kS_list):
                         # misidentified source
                         # fall positive (in section leading up to the source
 
-
                         # inputs
                         # number_acquisitions_save
                         # negative_window
                         # positive_window
-
 
                         # DANGER - this should be passed on somehow from file - OY
                         number_acquisitions_save = 25
@@ -416,8 +413,8 @@ for kS_index, kS in enumerate(kS_list):
                         if 'nn' not in model_name:
                             prediction_arg_max = copy.copy(prediction_all_dict[model_name][split_index])
                         else:
-
-                            nn_threshold = 0.25
+                            # if the output from the neural network is above this value, then it is class 0 (background)
+                            nn_threshold = 0.10
                             prediction_arg_max = copy.copy(np.argmax(prediction_all_dict[model_name][split_index], axis = 1))
                             # set those with lower NN output values to 0
                             cutt = prediction_all_dict[model_name][split_index].max(1) < nn_threshold
@@ -469,10 +466,6 @@ for kS_index, kS in enumerate(kS_list):
                         incorrect_prediction_rate_positive_window = false_positive_driveby_positive_window.sum() / float(len(false_positive_driveby_positive_window))
                         false_positive_rate_negative_window = false_positive_driveby_negative_window.sum() / float(len(false_positive_driveby_negative_window))
 
-
-
-
-
                         print('drive by recall_positive_window: {}'.format(recall_positive_window))
                         print('drive by incorrect_prediction_rate_positive_window: {}'.format(incorrect_prediction_rate_positive_window))
                         print('drive by false_positive_rate_negative_window: {}'.format(false_positive_rate_negative_window))
@@ -521,6 +514,8 @@ for kS_index, kS in enumerate(kS_list):
 
                     cPickle.dump(output, fid, 2)
                 print('Wrote:{}'.format(output_fullfilename))
+
+
 #
 #
 #

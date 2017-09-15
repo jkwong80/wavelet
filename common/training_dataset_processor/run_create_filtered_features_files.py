@@ -12,9 +12,7 @@ Arguments
     number_acquisitions_save = ast.literal_eval(sys.argv[7])
     file_index_start = int(sys.argv[8])
     file_index_stop = int(sys.argv[9])+1
-
 """
-#
 
 import os, sys, glob, time
 import h5py, ast
@@ -29,7 +27,6 @@ from multiprocessing import Pool
 # create the condensed datasets
 
 detector_index = 0
-
 
 # these' have already been defined above
 # number_acquisitions_save = 25
@@ -145,10 +142,14 @@ if __name__ == '__main__':
 
             print(param)
 
-    result = pool.map(training_dataset_processor.CreateFilteredFeaturesFile, arguments_list)
+    # don't bother using pool if only one thread; this also allows for easier debugging
+    if number_threads == 1:
+        for args in arguments_list:
+            training_dataset_processor.CreateFilteredFeaturesFile(args)
+    else:
+        result = pool.map(training_dataset_processor.CreateFilteredFeaturesFile, arguments_list)
+        pool.close()
+        pool.join()
 
-
-    pool.close()
-    pool.join()
     print('Time Elapsed: %3.3f' %(time.time() - t_start))
 

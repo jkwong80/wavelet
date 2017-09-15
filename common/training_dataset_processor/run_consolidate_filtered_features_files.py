@@ -20,7 +20,9 @@ import training_dataset_processor
 
 if __name__ == '__main__':
 
+    print(sys.argv)
     file_path = sys.argv[1]
+    # training_data_path = sys.argv[2]
     training_set_id = sys.argv[2]
 
     kS = int(sys.argv[3])
@@ -30,7 +32,6 @@ if __name__ == '__main__':
     start_index = int(sys.argv[6])
     stop_index = int(sys.argv[7])
     feature_indices_name = sys.argv[8]
-
 
     temp = glob.glob(os.path.join(file_path, \
                       '*kS_%02d__kB_%02d__gap_%02d__%s__FilteredFeaturesDataset.h5' % ( kS, kB, gap, feature_indices_name)))
@@ -46,6 +47,13 @@ if __name__ == '__main__':
     # filename_list = [os.path.split(f)[-1] for f in fullfilename_list if ('all' not in f) and (int(f.split('__')[1]) >= start_index) and (int(f.split('__')[1]) <= stop_index)]
     filename_list = [os.path.split(f)[-1] for f in fullfilename_list]
 
+    # # get the indices of these files
+    # # get the job id
+    # id = filename_list[0].split('__')[0]
+    # file_indices = [int(f.split('__')[1]) for f in filename_list]
+    # file_indices.sort()
+    # training_data_fullfilename_list = [os.path.join(training_data_path, '%s__%03d__TrainingDataset.h5' %(id, file_index)) for file_index in file_indices]
+
     # temp = [int(f.split('__')[1]) for f in filename_list if 'all' not in f]
     #
     # dataset_index_list = [f for f in temp if (f >= start_index) and (f <= stop_index)]
@@ -57,4 +65,6 @@ if __name__ == '__main__':
     output_fullfilename = os.path.join(file_path, output_filename)
 
     training_dataset_processor.ConsolidateFilteredFeatturesFiles(fullfilename_list, output_fullfilename)
+    # training_dataset_processor.ConsolidateFilteredFeatturesFiles(fullfilename_list, training_data_fullfilename_list, output_fullfilename)
+
 

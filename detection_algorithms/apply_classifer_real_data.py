@@ -31,13 +31,11 @@ from keras import metrics
 from sklearn.utils import class_weight
 from scipy.stats import pearsonr
 
-
 plot_markers = ''
 
 lineStyles = ['-', '--', '-.', ':']
 markerTypes = ['.', '*', 'o', 'd', 'h', 'p', 's', 'v', 'x']
 plotColors = ['k', 'r', 'g', 'b', 'm', 'y', 'c'] * 10
-
 
 def create_neural_network_5layer_model(input_size, output_size):
 # def create_neural_network_5layer_model():
@@ -112,7 +110,6 @@ if not os.path.exists(snr_root_path):
 
 snr_path = os.path.join(snr_root_path, '20170824')
 
-
 real_data_root_path = os.path.join(base_dir, 'real_data')
 real_data_processed_root_path = os.path.join(base_dir, 'real_data_processed')
 
@@ -120,6 +117,8 @@ if not os.path.exists(real_data_processed_root_path):
     os.mkdir(real_data_processed_root_path)
 
 print(real_data_processed_root_path)
+
+
 
 
 # lost of parameters to cycle through
@@ -131,9 +130,9 @@ feature_indices_name_list = ['mask_filtered_features_2', 'mask_filtered_features
 model_keys = ['lda', 'nn_4layer', 'lr_0']
 
 
-kS = 2
+kS = 4
 kB = 16
-gap = 4
+gap = 8
 feature_indices_name = feature_indices_name_list[0]
 # list of algorithms
 # model_keys = ['lr', 'lda']
@@ -282,7 +281,6 @@ new_prediction1[new_prediction[:,0]>background_probability_threshold] = 0
 
 old_prediction = copy.deepcopy(model['prediction_all_dict'][model_name][0])
 
-
 # example the random forest performance
 
 
@@ -403,71 +401,35 @@ plt.title(model_name)
 number_bins = 512
 number_instances_process = 50000
 
-filename = '/Users/johnkwong/Downloads/RebinReadings_2017-04-14T19-55-54Z.h5'
+filename_header_list = ['RebinReadings_2017-04-14T19-55-54Z', 'RebinReadings_2017-04-25T15-32-24Z', 'RebinReadings_2017-04-26T14-29-40Z']
 
-filename = '/Users/johnkwong/Downloads/GammaReadings_2017-04-14T00-31-56Z.h5'
+filename_header = filename_header_list[1]
 
-filename = '/Users/johnkwong/Downloads/RebinReadings_2017-04-25T15-32-24Z.h5'
+fullfilename = os.path.join(real_data_root_path, '{}.h5'.format(filename_header))
 
-filename = '/Users/johnkwong/Downloads/RebinReadings_2017-04-26T14-29-40Z.h5'
-
-
-
-with h5py.File(filename, 'r') as dat:
+with h5py.File(fullfilename, 'r') as dat:
     try:
         spectra = dat['sensor_150_degrees']['spectra'].value
     except:
         spectra = dat['sensor_150_degrees']['adc_channel_counts'].value
 
+mask_filtered_features_name = 'mask_filtered_features_2'
 # load the feature_list =
 
-# this is the dict key of the feature indices you wan from the feature selection file
+# # this is the dict key of the feature indices you wan from the feature selection file
+#
+# feature_selection_path = os.path.join(base_dir, 'feature_selection')
 
-feature_selection_path = os.path.join(base_dir, 'feature_selection')
+# feature_selection_filename = '5b178c11-a4e4-4b19-a925-96f27c49491b__kS_02__kB_16__gap_04__top_features.h5'
+# feature_selection_fullfilename = os.path.join(feature_selection_path, feature_selection_filename)
 
-mask_filtered_features_name = 'mask_filtered_features_2'
-
-feature_selection_filename = '5b178c11-a4e4-4b19-a925-96f27c49491b__kS_02__kB_16__gap_04__top_features.h5'
-feature_selection_fullfilename = os.path.join(feature_selection_path, feature_selection_filename)
-
-
-with h5py.File(feature_selection_fullfilename, 'r') as f:
-    mask_filtered_features = f[mask_filtered_features_name].value
-print('Keeping {} features'.format(sum(mask_filtered_features)))
-
-number_samples_save = np.sum(mask_filtered_features)
-
-
-if number_bins == 512:
-    number_wavelet_bins = 4107
-elif number_bins == 1024:
-    number_wavelet_bins = 9228
-
-detector_index = 0
-
-
-# no compression as this slows things down quite a bit
-number_actually_process = min(number_instances_process, spectra.shape[0])
-
-SNR_filtered_matrix = np.zeros((number_actually_process, number_samples_save))
-
-# get the signal and background portions
-
-
-# for sample_index in xrange(number_actually_process):
-
-for sample_index in xrange(number_actually_process):
-
-    if sample_index % 100 == 0:
-        print('sample index {}/{}'.format(sample_index, number_actually_process))
-    SNR_filtered_matrix[sample_index, :] = f_snr.ingest(spectra[sample_index,:].astype(float))[mask_filtered_features]
-
+# with h5py.File(feature_selection_fullfilename, 'r') as f:
+#     mask_filtered_features = f[mask_filtered_features_name].value
+# print('Keeping {} features'.format(sum(mask_filtered_features)))
 
 kS = 2
 kB = 16
 gap = 4
-
-filename_header = 'RebinReadings_2017-04-26T14-29-40Z'
 
 filename = '%s__kS_%02d__kB_%02d__gap_%02d__%s.h5' % (filename_header, kS, kB, gap, mask_filtered_features_name)
 
@@ -475,37 +437,65 @@ fullfilename = os.path.join(real_data_processed_root_path, filename)
 
 print('Loading: {}'.format(fullfilename))
 with h5py.File(fullfilename, 'r') as f:
-    SNR_filtered = f['SNR_filtered'].value
+    SNR_filtered_matrix = f['SNR_filtered'].value
     t = f['t'].value
 
 # load the file
 
+prediction = {}
 
-model_name = 'nn_4layer'
-
-nn_output_new_data = model['models']['nn_4layer'][0].model.predict(SNR_filtered_matrix)
-nn_prediction_new_data= np.argmax(nn_output_new_data, axis =1)
-lda_prediction = model['models']['lda'][0].predict(SNR_filtered_matrix)
-background_probability_threshold = 0.02
-nn_prediction_new_data[nn_output_new_data[:,0]>background_probability_threshold] = 0
+cross_val_index = 0
 
 
-model_name = 'rf_0'
-rf_new_prediction= model['models'][model_name][0].predict_proba(SNR_filtered_matrix)
-rf_new_prediction1 = np.argmax(rf_new_prediction, axis = 1)
-rf_background_probability_threshold = 0.03
-rf_new_prediction1[rf_new_prediction[:,0]>rf_background_probability_threshold] = 0
+for model_name in model['models'].keys():
+    prediction[model_name] = {}
 
+    if model_name == 'nn_4layer':
+        prediction[model_name]['prob'] = model['models'][model_name][cross_val_index].model.predict(SNR_filtered_matrix)
+        prediction[model_name]['prediction0'] = np.argmax(prediction[model_name]['prob'], axis =1)
+        prediction[model_name]['background_probability_threshold'] = 0.02
+        prediction[model_name]['prediction'] = np.argmax(prediction[model_name]['prob'], axis =1)
+        prediction[model_name]['prediction'][prediction[model_name]['prob'][:,0] > prediction[model_name]['background_probability_threshold']] = 0
 
-model_name = 'lda'
-lda_new_prediction = model['models'][model_name][0].predict_proba(SNR_filtered_matrix)
-lda_new_prediction1 = np.argmax(rf_new_prediction, axis = 1)
-# lda_background_probability_threshold = 0.03
-# lda_new_prediction1[rf_new_prediction[:,0]>rf_background_probability_threshold] = 0
+    elif model_name == 'rf_0':
+        prediction[model_name]['prob'] = model['models'][model_name][cross_val_index].predict_proba(SNR_filtered_matrix)
+        prediction[model_name]['prediction0'] = np.argmax(prediction[model_name]['prob'], axis =1)
+        prediction[model_name]['background_probability_threshold'] = 0.03
+        prediction[model_name]['prediction'] = np.argmax(prediction[model_name]['prob'], axis =1)
+        prediction[model_name]['prediction'][prediction[model_name]['prob'][:,0] > prediction[model_name]['background_probability_threshold']] = 0
 
+    elif model_name == 'lda':
+        prediction[model_name]['prob'] = model['models'][model_name][cross_val_index].predict_proba(SNR_filtered_matrix)
+        prediction[model_name]['prediction0'] = np.argmax(prediction[model_name]['prob'], axis =1)
+        # prediction[model_name]['background_probability_threshold'] = 0.03
+        prediction[model_name]['prediction'] = np.argmax(prediction[model_name]['prob'], axis =1)
+        # prediction[model_name]['prediction'][prediction[model_name]['prob'][:,0] > prediction[model_name]['background_probability_threshold']] = 0
 
-
-tally = Counter(nn_prediction_new_data)
+#
+#
+#
+#
+# model_name = 'nn_4layer'
+#
+# nn_output_new_data = model['models']['nn_4layer'][0].model.predict(SNR_filtered_matrix)
+# nn_prediction_new_data= np.argmax(nn_output_new_data, axis =1)
+# lda_prediction = model['models']['lda'][0].predict(SNR_filtered_matrix)
+# background_probability_threshold = 0.02
+# nn_prediction_new_data[nn_output_new_data[:,0]>background_probability_threshold] = 0
+#
+#
+# model_name = 'rf_0'
+# rf_new_prediction= model['models'][model_name][0].predict_proba(SNR_filtered_matrix)
+# rf_new_prediction1 = np.argmax(rf_new_prediction, axis = 1)
+# rf_background_probability_threshold = 0.03
+# rf_new_prediction1[rf_new_prediction[:,0]>rf_background_probability_threshold] = 0
+#
+#
+# model_name = 'lda'
+# lda_new_prediction = model['models'][model_name][0].predict_proba(SNR_filtered_matrix)
+# lda_new_prediction1 = np.argmax(rf_new_prediction, axis = 1)
+# # lda_background_probability_threshold = 0.03
+# # lda_new_prediction1[rf_new_prediction[:,0]>rf_background_probability_threshold] = 0
 
 
 # plot of the random fore
@@ -515,96 +505,71 @@ plt.grid()
 plt.plot(spectra.sum(1), label = 'Total Counts')
 # plt.plot(nn_prediction_new_data*100, '--b', label = 'Prediction, nn_4layer', alpha = 0.6)
 
-nn_tally = Counter(nn_prediction_new_data)
-instance_index = np.arange(nn_prediction_new_data.shape[0])
+marker_types = ['.', 's', 'd']
 
-plot_index = 0
-for index, key in enumerate(nn_tally.keys()):
+for model_name_index, model_name in enumerate(model['models'].keys()):
 
-    if key == 0:
-        continue
-    cutt = nn_prediction_new_data == key
+    tally = Counter(prediction[model_name]['prediction'])
+    instance_index = np.arange( prediction[model_name]['prediction'].shape[0])
 
-    if key == 0:
-        isotope = 'background'
-    else:
-        isotope = isotope_string_set[key-1]
+    plot_index = 0
+    for index, key in enumerate(tally.keys()):
 
-    if plot_index >= 7:
-        markeredgecolor = 'k'
-    else:
-        markeredgecolor = plotColors[plot_index]
+        if key == 0:
+            continue
+        cutt = prediction[model_name]['prediction'] == key
 
+        if key == 0:
+            isotope = 'background'
+        else:
+            isotope = isotope_string_set[key-1]
 
-    plt.plot(instance_index[cutt], 1100*np.ones_like(instance_index)[cutt] + plot_index*10, linestyle = 'none', marker = '.', \
-             markersize = 10, color = plotColors[plot_index], markeredgecolor= markeredgecolor,
-             alpha = 0.4, label = 'Prediction {}, nn_4layer'.format(isotope), mew = 5)
-    plot_index +=1
-plt.legend()
+        if plot_index >= 7:
+            markeredgecolor = 'k'
+        else:
+            markeredgecolor = plotColors[plot_index]
 
-
-rf_tally = Counter(rf_new_prediction1)
-instance_index = np.arange(rf_new_prediction1.shape[0])
-plot_index = 0
-for index, key in enumerate(rf_tally.keys()):
-
-    if key == 0:
-        continue
-
-    cutt = rf_new_prediction1 == key
-
-    if key == 0:
-        isotope = 'background'
-    else:
-        isotope = isotope_string_set[key-1]
-
-    if plot_index >= 7:
-        markeredgecolor = 'k'
-    else:
-        markeredgecolor = plotColors[plot_index]
-
-
-    # plt.plot(cutt*1000, linestyle = '-', color = plotColors[index],
-    #          alpha = 0.8, label = 'Prediction {}, rf_0'.format(isotope), linewidth = 2)
-    plt.plot(instance_index[cutt], 1400*np.ones_like(instance_index)[cutt] + plot_index*10, linestyle = 'none', marker = 's', \
-             markersize = 10, color = plotColors[plot_index], markeredgecolor= plotColors[plot_index],
-             alpha = 0.4, label = 'Prediction {}, random forest'.format(isotope), mew = 5)
-    plot_index +=1
-
-
-lda_tally = Counter(lda_new_prediction1)
-instance_index = np.arange(lda_new_prediction1.shape[0])
-plot_index = 0
-for index, key in enumerate(lda_tally.keys()):
-
-    if key == 0:
-        continue
-
-    cutt = lda_new_prediction1 == key
-
-    if key == 0:
-        isotope = 'background'
-    else:
-        isotope = isotope_string_set[key-1]
-
-    # plt.plot(cutt*1000, linestyle = '-', color = plotColors[index],
-    #          alpha = 0.8, label = 'Prediction {}, rf_0'.format(isotope), linewidth = 2)
-
-    if plot_index >= 7:
-        markeredgecolor = 'k'
-    else:
-        markeredgecolor = plotColors[plot_index]
-
-    plt.plot(instance_index[cutt], 1700*np.ones_like(instance_index)[cutt] + plot_index*10,
-             linestyle = 'none', marker = 'd', markersize = 10, color = plotColors[plot_index], markeredgecolor = markeredgecolor,
-             alpha = 0.4, label = 'Prediction {}, lda'.format(isotope), mew = 5)
-    plot_index +=1
-
-
+        plt.plot(instance_index[cutt], 1100*np.ones_like(instance_index)[cutt] + plot_index*10 + model_name_index*200, \
+                 linestyle = 'none', marker = marker_types[model_name_index], \
+                 markersize = 10, color = plotColors[plot_index], markeredgecolor= markeredgecolor,
+                 alpha = 0.4, label = '{} Prediction {}'.format(model_name, isotope), mew = 5)
+        plot_index += 1
 plt.legend()
 plt.xlabel('Acquisition Index')
 
 
+
+isotope_string_with_background_set = np.array(['background'] + list(isotope_string_set))
+
+# plot the probabilities
+
+isotopes_plot = ['background', 'Am241', 'Ba133', 'Co57', 'I131', 'RGPu']
+
+for model_name_index, model_name in enumerate(model['models'].keys()):
+
+    plt.figure()
+    plt.grid()
+    plot_index = 0
+    for isotope_index,isotope_name in enumerate(isotopes_plot):
+
+        isotope_name_index = np.where(isotope_name == isotope_string_with_background_set)[0][0]
+
+        isotope = isotope_string_with_background_set[isotope_name_index]
+
+        if plot_index >= 7:
+            markeredgecolor = 'k'
+        else:
+            markeredgecolor = plotColors[plot_index]
+
+        plt.plot(prediction[model_name]['prob'][:,isotope_index], linestyle = '-',\
+                 color = plotColors[plot_index],
+                 alpha = 0.7, label = '{} Prediction {}'.format(model_name, isotope))
+        plot_index += 1
+    plt.legend()
+    plt.xlabel('Acquisition Index')
+    plt.ylabel('Probability')
+    plt.title(model_name)
+    plt.xlim(a)
 
 
 plt.figure()

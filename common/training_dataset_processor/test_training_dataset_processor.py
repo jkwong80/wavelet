@@ -112,7 +112,6 @@ if __name__ == '__main__':
 
             # check if the file already exists
 
-
             filename = training_dataset_filename.replace('TrainingDataset',
                                                          'kS_%02d__kB_%02d__gap_%02d__ProcessedDataset' % (kS, kB, gap))
             output_fullfilename = os.path.join(processed_dataset_path, filename)

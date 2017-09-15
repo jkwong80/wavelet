@@ -34,6 +34,69 @@ plot_colors = ['k', 'r', 'b', 'g', 'm', 'c', 'y']
 
 # open the file
 
+def GetInjectionResourcePaths():
+    """
+    Get paths to injection resources
+    :return:
+    """
+
+    # open a couple files and append the results
+
+    paths = {}
+
+    if 'INJECTION_RESOURCES' in os.environ:
+        base_dir = os.environ['INJECTION_RESOURCES']
+    else:
+        base_dir = os.path.join(os.environ['HOME'], 'injection_resources')
+
+    paths['base'] = base_dir
+    paths['plot'] = os.path.join(base_dir, 'plots', time.strftime('%Y%m%d'))
+    if not os.path.exists(paths['plot']):
+        os.mkdir(paths['plot'])
+    paths['training_datasets_root'] = os.path.join(base_dir, 'training_datasets')
+    paths['processed_datasets_root'] = os.path.join(base_dir, 'processed_datasets')
+    paths['filtered_features_datasets_root'] = os.path.join(base_dir, 'filtered_features_datasets')
+    paths['models_root'] = os.path.join(base_dir, 'models')
+    paths['snr_root']= os.path.join(base_dir, 'snr_functions')
+    paths['snr'] = os.path.join(paths['snr_root'], '20170824')
+    paths['real_data_root'] = os.path.join(base_dir, 'real_data')
+    paths['real_data_processed_root'] = os.path.join(base_dir, 'real_data_processed')
+
+    return(paths)
+
+def GetSourceMapping(id):
+    # get source_name_list from one the recent training datasets
+    # id = 'dd70a53c-0598-447c-9b23-ea597ed1704e'
+    paths = GetInjectionResourcePaths()
+
+    temp_list = glob.glob(os.path.join(paths['training_datasets'], id, '*.h5'))
+    with h5py.File(temp_list[0], 'r') as fid:
+        source_name_list = fid['source_name_list'].value
+
+    sources = {'source_name_list':source_name_list}
+
+    # need a y where the no-isotope is index 0 and group together isotopes
+    isotope_string_list = []
+    for source_name in source_name_list:
+        index_underscore = source_name.find('_')
+        isotope_string_list.append(source_name[:index_underscore])
+    isotope_string_list = np.array(isotope_string_list)
+    isotope_string_set = np.array(list(set(isotope_string_list)))
+    isotope_string_set.sort()
+
+    print('Number of isotopes: {}'.format(len(isotope_string_set)))
+
+    # map from isotope string to y value
+    isotope_mapping = {}
+    for isotope_string_index, isotope_string in enumerate(isotope_string_list):
+        isotope_mapping[isotope_string_index] = np.where(isotope_string_set == isotope_string)[0][0] + 1
+
+    sources['isotope_string_list'] = isotope_string_list
+    sources['isotope_string_set'] = isotope_string_set
+    sources['isotope_mapping'] = isotope_mapping
+
+    return(sources)
+
 def ProcessTrainingDataset(param):
 
     training_dataset_fullfilename = param['input_filename']
@@ -51,7 +114,6 @@ def ProcessTrainingDataset(param):
     param['snr_fullfilename']
 
     number_bins = param['number_bins']
-
 
     training_dataset_filename = os.path.split(training_dataset_fullfilename)[-1]
 
@@ -177,7 +239,6 @@ def CalculateTargetValues(filename_input, filename_output):
 
     training_dataset = h5py.File(filename_input, 'r')
 
-
     # Assemble the spectrum by adding the injection and background
     # DIMENSIONS: [# instances] x [# detectors] x [# samples in passby] x [# bins in spectrum]
 
@@ -204,7 +265,7 @@ def CalculateTargetValues(filename_input, filename_output):
     t_start_before_loop = time.time()
 
 
-    with h5py.File(filename_output, "w") as f:
+    with h5py.File(filename_output, 'w') as f:
 
         signal = training_dataset['injection_spectra'].value
         background = training_dataset['background_matrix'].value
@@ -231,7 +292,6 @@ def CalculateTargetValues(filename_input, filename_output):
         f.create_dataset('background_total_counts_all_detectors', data = background.sum(3).sum(1))
         f.create_dataset('background_total_counts_no_first_bin_all_detectors', data = background[:,:,:,1:].sum(3).sum(1))
 
-
         f.create_dataset('background_mean_counts', data = background.sum(3).mean(2))
         f.create_dataset('background_mean_counts_no_first_bin', data = background[:,:,:,1:].sum(3).mean(2))
 
@@ -247,6 +307,13 @@ def CalculateTargetValues(filename_input, filename_output):
 
         f.create_dataset('source_index', data = training_dataset['source_index'])
         f.create_dataset('source_name_list', data = training_dataset['source_name_list'])
+
+        # extra values relevant to the simulation
+        f.create_dataset('distance_closest_approach', data = training_dataset['distance_closest_approach'])
+        f.create_dataset('background_rate', data = training_dataset['background_rate'])
+        f.create_dataset('signal_sigma', data = training_dataset['signal_sigma'])
+        f.create_dataset('source_activity', data = training_dataset['source_activity'])
+        f.create_dataset('speed', data = training_dataset['speed'])
 
         source_name_list = training_dataset['source_name_list']
 
@@ -266,10 +333,10 @@ def CalculateTargetValues(filename_input, filename_output):
         isotope_mapping = {}
         for isotope_string_index, isotope_string in enumerate(isotope_string_list):
             isotope_mapping[isotope_string_index] = np.where(isotope_string_set == isotope_string)[0][0] + 1
-        # this the
-        y_new = np.zeros(y.shape[0])
+        # # this the
+        # y_new = np.zeros(y.shape[0])
 
-        # Calcuate the main target array - total counts for each isotope
+        # Calculate the main target array - total counts for each isotope
         # dimensions: number_instances x number_sources x number_acquisitions
         #
         source_index = training_dataset['source_index'].value
@@ -363,7 +430,16 @@ def CreateFilteredFeaturesFile(param):
     # acquisitions_skip to (acquisitions_skip+number_acquisitions_save)
     SNR_matrix = processed_dataset['SNR_matrix'].value
 
+    # open the target values file
     target_values = h5py.File(target_values_fullfilename, 'r')
+
+    target_values_loaded = {}
+
+    target_values_all = {}
+    target_values_keys = ['distance_closest_approach', 'background_rate', 'signal_sigma', 'source_activity', 'speed']
+    for target_value_key in target_values_keys:
+        target_values_loaded[target_value_key] = target_values[target_value_key].value
+        target_values_all[target_value_key] = np.zeros(number_instances * number_acquisitions_save)
 
     # this has not been truncate so need to truncated it here
     # after the truncation here (as it is loaded), it should be on equal footing as SNR_matrix
@@ -378,13 +454,20 @@ def CreateFilteredFeaturesFile(param):
     # the number of training instances is the number of drive by instances (number_instances) times the number of acquisitions to save per drive-by
     source_signal_matrix_all = np.zeros((number_instances * number_acquisitions_save, source_signal_total_counts_all_detectors_matrix.shape[1]))
 
+    # distance_closest_approach_all = np.zeros(number_instances * number_acquisitions_save)
+    # background_rate_all = np.zeros(number_instances * number_acquisitions_save)
+    # signal_sigma_all = np.zeros(number_instances * number_acquisitions_save)
+    # source_activity_all = np.zeros(number_instances * number_acquisitions_save)
+    # speed_all = np.zeros(number_instances * number_acquisitions_save)
+
     # reshaping the matrix
     SNR_matrix_all = np.zeros((number_instances * number_acquisitions_save, number_wavelet_bins))
 
     for instance_index in xrange(number_instances):
         # if instance_index % 10 == 0:
         #     print('{}/{}'.format(instance_index, number_instances))
-        # indices in the drive by space
+
+        # indices in the drive-by space
         start0 = acquisitions_skip
         stop0 = acquisitions_skip + number_acquisitions_save
 
@@ -397,9 +480,12 @@ def CreateFilteredFeaturesFile(param):
 
         source_signal_matrix_all[start:stop,:] = source_signal_total_counts_all_detectors_matrix[instance_index, :, start0:stop0].T
 
+        # these are values that are going to be the same for all acquisitions of the driveby
+        for target_value_key in target_values_keys:
+            target_values_all[target_value_key][start:stop] = target_values_loaded[target_value_key][instance_index]
+
     X = SNR_matrix_all[:,mask_filtered_features]
     y = source_signal_matrix_all[:, :]
-
 
     # taken from train_classifiers.py
     # Calculate projection to isotope axes (y is to source axes)
@@ -438,7 +524,6 @@ def CreateFilteredFeaturesFile(param):
             y_isotope[instance_index] = sub_index
             y_isotope_count[instance_index, sub_index] = y[instance_index, :].sum()
 
-
     with h5py.File(filtered_features_dataset_fullfilename, 'w') as f:
         f.create_dataset('y', data=y, compression = 'gzip')
         f.create_dataset('X', data=X, compression = 'gzip')
@@ -451,12 +536,15 @@ def CreateFilteredFeaturesFile(param):
         f.create_dataset('number_instances', data=number_instances)
         f.create_dataset('number_samples_save', data=number_samples_save)
         f.create_dataset('acquisitions_skip', data=acquisitions_skip)
-
+        for target_value_key in target_values_keys:
+            f.create_dataset(target_value_key, data=target_values_all[target_value_key], compression = 'gzip')
 
     print('Wrote: {}'.format(filtered_features_dataset_fullfilename))
 
 
+# def ConsolidateFilteredFeatturesFiles(fullfilename_list, training_data_fullfilename_list, output_filename):
 def ConsolidateFilteredFeatturesFiles(fullfilename_list, output_filename):
+
     """
         Consolidates the filtered features files. Note that this does not check to see if your files are valid.
         It will crash if the files does not exist.
@@ -471,31 +559,68 @@ def ConsolidateFilteredFeatturesFiles(fullfilename_list, output_filename):
     number_files = len(fullfilename_list)
     print("number_files: {}".format(number_files))
 
+    target_values_keys = ['distance_closest_approach', 'background_rate', 'signal_sigma', 'source_activity',
+                          'speed']
+
     for dataset_index, fullfilename in enumerate(fullfilename_list):
 
+        print('Reading: {}'.format(fullfilename))
         with h5py.File(fullfilename, 'r') as f:
 
             if dataset_index == 0:
                 X_dimensions = f['X'].shape
                 y_dimensions = f['y'].shape
-
                 print(X_dimensions)
 
-                X = np.zeros((X_dimensions[0] * number_files, X_dimensions[1]))
+                y_isotope_dimensions = f['y_isotope'].shape
+                y_isotope_count_dimensions = f['y_isotope_count'].shape
 
+                X = np.zeros((X_dimensions[0] * number_files, X_dimensions[1]))
                 y = np.zeros((y_dimensions[0] * number_files, y_dimensions[1]))
+
+                y_isotope = np.zeros(y_isotope_dimensions[0] * number_files)
+                y_isotope_count = np.zeros((y_isotope_count_dimensions[0] * number_files, y_isotope_count_dimensions[1]))
+
+                target_values_all = {}
+                for target_value_key in target_values_keys:
+                    target_values_all[target_value_key] = np.zeros(y_dimensions[0] * number_files)
+
             start_index = dataset_index * X_dimensions[0]
             stop_index = (dataset_index + 1) * X_dimensions[0]
 
             X[start_index:stop_index, :] = f['X']
             y[start_index:stop_index, :] = f['y']
 
+            y_isotope[start_index:stop_index] = f['y_isotope']
+            y_isotope_count[start_index:stop_index, :] = f['y_isotope_count']
+
+            for target_value_key in target_values_keys:
+                target_values_all[target_value_key][start_index:stop_index] = f[target_value_key]
+
+            mask_filtered_features = f['mask_filtered_features'].value
+            number_instances = f['number_instances'].value
+            number_samples_save = f['number_samples_save'].value
+            acquisitions_skip = f['acquisitions_skip'].value
+
         print('read: {}'.format(fullfilename))
+
+    print(mask_filtered_features)
 
     # write to file
 
     with h5py.File(output_filename, 'w') as f:
         f.create_dataset('y', data=y, compression='gzip')
         f.create_dataset('X', data=X, compression='gzip')
+        f.create_dataset('y_isotope', data=y_isotope, compression='gzip')
+        f.create_dataset('y_isotope_count', data=y_isotope_count, compression='gzip')
+        for target_value_key in target_values_keys:
+            f.create_dataset(target_value_key, data=target_values_all[target_value_key], compression='gzip')
+
+        # write some scalars
+        f.create_dataset('mask_filtered_features', data=mask_filtered_features)
+        # temp = f.create_dataset('mask_filtered_features', data=mask_filtered_features)
+        f.create_dataset('number_instances', data=number_instances)
+        f.create_dataset('number_samples_save', data=number_samples_save)
+        f.create_dataset('acquisitions_skip', data=acquisitions_skip)
 
     print('Wrote: {}'.format(output_filename))

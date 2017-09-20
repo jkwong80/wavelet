@@ -54,7 +54,7 @@ processed_datasets_root_path = os.path.join(base_dir, 'processed_datasets')
 filtered_features_dataset_root_path = os.path.join(base_dir, 'filtered_features_datasets')
 
 models_dataset_root_path = os.path.join(base_dir, 'models')
-models_dataset_path = os.path.join(models_dataset_root_path, '8')
+models_dataset_path = os.path.join(models_dataset_root_path, '10')
 
 if not os.path.exists(models_dataset_root_path):
     os.mkdir(models_dataset_root_path)
@@ -63,20 +63,20 @@ if not os.path.exists(models_dataset_path):
 
 # lost of parameters to cycle through
 
-kS_list = [4]
-kB_list = [32]
-gap_list = [8]
+# kS_list = [4]
+# kB_list = [32]
+# gap_list = [8]
 
-# kS_list = [2]
-# kB_list = [16]
-# gap_list = [4]
+kS_list = [4]
+kB_list = [16]
+gap_list = [4]
 
 # kS_list = [2, 4]
 # kB_list = [16, 32]
 # gap_list = [4]
 
 # feature_indices_name_list = ['mask_filtered_features_2', 'mask_filtered_features_3']
-feature_indices_name_list = ['mask_filtered_features_3']
+feature_indices_name_list = ['mask_filtered_features_2']
 
 # list of algorithms
 # model_keys = ['lr', 'lda']
@@ -84,13 +84,12 @@ model_keys = ['lda', 'nn_2layer', 'nn_3layer', 'nn_4layer', 'nn_5layer', 'nn_4la
 
 # model_keys = ['lda', 'rf_0', 'lr', 'nn_2layer', 'nn_3layer', 'nn_4layer', 'nn_5layer', 'nn_4layer_no_dropout']
 
-model_keys = ['lda', 'rf_0', 'nn_2layer', 'nn_3layer']
+model_keys = ['lda', 'rf_0', 'nn_2layer', 'nn_3layer', 'nn_4layer', 'nn_5layer', 'nn_4layer_no_dropout']
 
-
-
+# model_keys = ['lda', 'nn_2layer']
 
 # # number to load from file
-load_subset = True
+load_subset = False
 # load_subset = False
 number_instance_load = 1000000
 
@@ -120,6 +119,8 @@ positive_window = [15, 24]
 
 # have the number of background events be background_ratio * the average number of other instances
 background_ratio = 20
+
+nn_epochs = 100
 
 # speed_bounds_list = np.array([5, 10, 15, 20, 25])
 
@@ -157,9 +158,9 @@ for kS_index, kS in enumerate(kS_list):
                     if load_subset:
                         X = f['X'][:number_instance_load,:]
                         y = f['y'][:number_instance_load,:]
-                        speed = f['speed'][:number_instance_load,:]
-                        distance_closest_approach = f['distance_closest_approach'][:number_instance_load,:]
-                        signal_sigma = f['signal_sigma'][:number_instance_load,:]
+                        speed = f['speed'][:number_instance_load]
+                        distance_closest_approach = f['distance_closest_approach'][:number_instance_load]
+                        signal_sigma = f['signal_sigma'][:number_instance_load]
 
                     else:
                         X = f['X'].value
@@ -203,6 +204,7 @@ for kS_index, kS in enumerate(kS_list):
                         y_new[instance_index] = isotope_mapping[np.argmax(y[instance_index, :])]
 
                 indices = np.where(np.diff(y_new.astype(int)) > 0)[0]
+
                 y_new_buffered = copy.deepcopy(y_new)
                 for index in indices:
                     y_new_buffered[(index + 1):(index + 1 + buffer_size[kS])] = y_new_buffered[index + 1]
@@ -241,7 +243,8 @@ for kS_index, kS in enumerate(kS_list):
 
                 for speed_index, speed_bounds in enumerate(speed_bounds_list):
 
-                    mask_include_speed = (speed > speed_bounds[0]) & (speed <= speed_bounds[1])
+                    masks['speed'] = (speed > speed_bounds[0]) & (speed <= speed_bounds[1])
+
 
                     print('Original Count of classes:')
                     print(np.bincount(y_new_buffered))
@@ -261,12 +264,12 @@ for kS_index, kS in enumerate(kS_list):
 
 
                     print('Count of classes in Training Set and speed range after removing a lot of background instances:')
-                    print(np.bincount(y_new_buffered[masks['balanced'] & masks['training']]))
-                    print('total number of instances: {}'.format(len(y_new_buffered[masks['balanced'] & masks['training'] & mask_include_speed])))
+                    print(np.bincount(y_new_buffered[masks['balanced'] & masks['training'] & masks['speed']]))
+                    print('total number of instances: {}'.format(len(y_new_buffered[masks['balanced'] & masks['training'] & masks['speed']])))
 
                     print('Count of classes in Test Set and speed range after removing a lot of background instances:')
-                    print(np.bincount(y_new_buffered[masks['balanced'] & masks['test']]))
-                    print('total number of instances: {}'.format(len(y_new_buffered[masks['balanced'] & masks['test'] & mask_include_speed])))
+                    print(np.bincount(y_new_buffered[masks['balanced'] & masks['test'] & masks['speed']]))
+                    print('total number of instances: {}'.format(len(y_new_buffered[masks['balanced'] & masks['test'] & masks['speed']])))
 
                     lb = preprocessing.LabelBinarizer()
                     lb.fit(y_new_buffered)
@@ -312,10 +315,9 @@ for kS_index, kS in enumerate(kS_list):
 
                     # set test and training split
                     skf = StratifiedKFold(n_splits=2)
-                    split_index = 0
 
                     # this the portion that will be use for cross validation.  It does not include the drive by portion
-                    masks['cross_val'] = masks['balanced'] & masks['training']
+                    masks['cross_val'] = masks['balanced'] & masks['training'] & masks['speed']
 
                     # Create 2d and 1d matrices including only instances in the subset with more balanced classes
                     # 2d matrix
@@ -324,9 +326,10 @@ for kS_index, kS in enumerate(kS_list):
                     # this is 1d matrix
                     y_index_cross_val = np.argmax(y_matrix[masks['cross_val'], :], axis = 1)
 
+                    split_index = 0
 
                     # cross validation indice generator generates indices in the subspace of 'cross_val'
-                    for indices_test, indices_train in skf.split(X[masks['cross_val'] :], y_new_buffered[masks['cross_val']]):
+                    for indices_test, indices_train in skf.split(X[masks['cross_val'], :], y_new_buffered[masks['cross_val']]):
 
                         indices['test'].append(indices_test)
                         indices['train'].append(indices_train)
@@ -343,27 +346,27 @@ for kS_index, kS in enumerate(kS_list):
                             elif model_name == 'nn_2layer':
                                 model = KerasClassifier(build_fn = create_neural_network_2layer_model,\
                                                         input_size = X.shape[1], output_size = y_matrix.shape[1], \
-                                                        epochs = 40, batch_size = 10000, verbose = 1)
+                                                        epochs = nn_epochs, batch_size = 10000, verbose = 1)
 
                             elif model_name == 'nn_3layer':
                                 model = KerasClassifier(build_fn = create_neural_network_3layer_model,\
                                                         input_size = X.shape[1], output_size = y_matrix.shape[1], \
-                                                        epochs = 40, batch_size = 10000, verbose = 1)
+                                                        epochs = nn_epochs, batch_size = 10000, verbose = 1)
 
                             elif model_name == 'nn_4layer':
                                 model = KerasClassifier(build_fn = create_neural_network_4layer_model,\
                                                         input_size = X.shape[1], output_size = y_matrix.shape[1], \
-                                                        epochs = 40, batch_size = 10000, verbose = 1)
+                                                        epochs = nn_epochs, batch_size = 10000, verbose = 1)
 
                             elif model_name == 'nn_4layer_no_dropout':
                                 model = KerasClassifier(build_fn = create_neural_network_4layer_no_dropout_model,\
                                                         input_size = X.shape[1], output_size = y_matrix.shape[1], \
-                                                        epochs = 40, batch_size = 10000, verbose = 1)
+                                                        epochs = nn_epochs, batch_size = 10000, verbose = 1)
 
                             elif model_name == 'nn_5layer':
                                 model = KerasClassifier(build_fn = create_neural_network_5layer_model, \
                                                         input_size = X.shape[1], output_size = y_matrix.shape[1], \
-                                                        epochs = 40, batch_size = 10000, verbose = 1)
+                                                        epochs = nn_epochs, batch_size = 10000, verbose = 1)
 
                             elif model_name == 'lr':
                                 model = LogisticRegression()
@@ -386,7 +389,7 @@ for kS_index, kS in enumerate(kS_list):
                                 t0 = time.time()
                                 # fit to the training indices
                                 # y_index_cross_val is already in the 'cross_val' subspace
-                                clf_all_dict[model_name][split_index].fit(X[masks['cross_val'] :][indices_train, :], \
+                                clf_all_dict[model_name][split_index].fit(X[masks['cross_val'], :][indices_train, :], \
                                                          y_index_cross_val[indices_train])
                                 print('Time to fit: {}'.format(time.time() - t0))
 
@@ -455,13 +458,18 @@ for kS_index, kS in enumerate(kS_list):
                             # negative_window
                             # positive_window
 
-
                             # Work on the drive by instances
                             # 9/14/2017
                             # It makes sense to work only on the stuff that hasn't been trained on which is why we
                             # are now going to work on the masks['test'] portion.
 
-                            number_driveby_instances = y_new_buffered.shape[0]/number_acquisitions_save
+                            # only examine for instances in the speed range
+                            masks['driveby'] = masks['test'] & masks['speed']
+
+
+                            # the number of drive bys is the number of acquisitions in the test divided by the number of
+                            # acquisitions saved per drive by
+                            number_driveby_instances = masks['driveby'].sum()/number_acquisitions_save
 
                             # prediction_driveby = np.zeros(number_driveby_instances)
                             prediction_driveby_positive_window = []
@@ -476,35 +484,32 @@ for kS_index, kS in enumerate(kS_list):
                             false_positive_driveby_positive_window = np.zeros(number_driveby_instances).astype(bool)
                             false_positive_driveby_negative_window = np.zeros(number_driveby_instances).astype(bool)
 
-                            # prediction = copy.copy(prediction_all_dict[model_name][split_index])
-                            if 'nn' not in model_name:
-                                prediction_arg_max = copy.copy(prediction_all_dict[model_name][split_index])
-                            else:
-                                # # if the output from the neural network is above this value, then it is class 0 (background)
-                                # nn_threshold = 0.10
-                                # prediction_arg_max = copy.copy(np.argmax(prediction_all_dict[model_name][split_index], axis = 1))
-                                # # set those with lower NN output values to 0
-                                # cutt = prediction_all_dict[model_name][split_index].max(1) < nn_threshold
-                                # prediction_arg_max[cutt] = 0
-                                prediction_arg_max = copy.copy(prediction_all_dict[model_name][split_index])
+                            # the prediction in the test drive bys
+
+                            # get particular trained model of particular cross validation split
+                            prediction_arg_max = prediction_all_dict[model_name][masks['driveby'][split_index]]
+
+                            # truth in the test drive by
+                            y_new_buffered_test = y_new_buffered[masks['driveby']]
+
 
                             for drive_by_index in xrange(number_driveby_instances):
 
-                                # start and stop of the drive by
+                                # start and stop of the drive by, in the test drive by subspace
                                 start_1 = drive_by_index * number_acquisitions_save
                                 stop_1 = start_1 + number_acquisitions_save
 
                                 # get the truth and prediction in the window near the source (positive window)
-                                truth_driveby_positive_window[drive_by_index] = np.max(y_new_buffered[start_1:stop_1][positive_window[0]:positive_window[1]]  )
+                                truth_driveby_positive_window[drive_by_index] = np.max(y_new_buffered_test[start_1:stop_1][positive_window[0]:positive_window[1]] )
                                 prediction_driveby_positive_window.append(Counter(prediction_arg_max[start_1:stop_1][positive_window[0]:positive_window[1]]))
 
                                 # get the truth and prediction in the window before the source (negative window)
-                                truth_driveby_negative_window[drive_by_index] = np.max(y_new_buffered[start_1:stop_1][negative_window[0]:negative_window[1]])
+                                truth_driveby_negative_window[drive_by_index] = np.max(y_new_buffered_test[start_1:stop_1][negative_window[0]:negative_window[1]])
                                 prediction_driveby_negative_window.append(Counter(prediction_arg_max[start_1:stop_1][negative_window[0]:negative_window[1]]))
 
-                                # get the isotope index of isotopes prediced in the positive window
+                                # get the isotope index of isotopes predicted in the positive window
                                 prediction_keys = prediction_driveby_positive_window[drive_by_index].keys()
-
+                                # It's true positive if we detect the source at least once
                                 true_positive_driveby_positive_window[drive_by_index] = truth_driveby_positive_window[drive_by_index] in prediction_keys
 
                                 # set of prediction labels
@@ -513,8 +518,12 @@ for kS_index, kS in enumerate(kS_list):
                                 # - append 0 because we don't consider predictions as no-source to be necessarily wrong
                                 temp2 = set([truth_driveby_positive_window[drive_by_index], 0.0])
 
+                                # temp1.difference(temp2) = elements in temp1 but not in temp2
+                                # if we predict isotopes that are not in the truth (temp2) then it is considered a
+                                # false prediction
                                 incorrect_predictions_positive_windows = list(temp1.difference(temp2))
 
+                                # boolean on whether or not there was a false positive in the source window
                                 false_positive_driveby_positive_window[drive_by_index] = len(incorrect_predictions_positive_windows) > 0
 
                                 # let's examine the negative window - before the source
@@ -552,22 +561,46 @@ for kS_index, kS in enumerate(kS_list):
 
                         split_index += 1
 
-                    del X
-                    del y
-                    # save stuff to file
+                    # del X
+                    # del y
+                    # save stuff to file after training and testing each speed.
 
-                    output_fullfilename = os.path.join(models_dataset_path, filtered_features_filename.replace('FilteredFeaturesDataset', 'Models').replace('h5', 'pkl'))
-                    with open(output_fullfilename, 'wb') as fid:
+                    model_output_fullfilename = os.path.join(models_dataset_path,
+                                                             filtered_features_filename.replace('FilteredFeaturesDataset', 'speed_%02d_%02d__Models' \
+                                                                                                %(speed_bounds[0], speed_bounds[1])).replace('h5', 'pkl'))
+                    with open(model_output_fullfilename, 'wb') as fid:
                         output = {}
-                        output['metrics'] = metrics_all_dict
                         output['models'] = clf_all_dict
+                        cPickle.dump(output, fid, 2)
+
+                    print('Wrote:{}'.format(model_output_fullfilename))
+
+                    # for the neural networks, write each one separately
+                    for model_name in clf_all_dict.keys():
+                        if 'nn' in model_name:
+                            # save just the neural networks
+
+                            for model_index in xrange(len(clf_all_dict[model_name])):
+                                nn_output_fullfilename = os.path.join(models_dataset_path,
+                                                                         filtered_features_filename.replace('FilteredFeaturesDataset', 'speed_%02d_%02d__%s__%02d_%02d' \
+                                                                            %(speed_bounds[0], speed_bounds[1], model_name, model_index, len(clf_all_dict[model_name]))) )
+                                clf_all_dict[model_name][model_index].model.save(nn_output_fullfilename)
+                                print('Wrote:{}'.format(nn_output_fullfilename))
+
+                    modelmetrics_output_fullfilename = os.path.join(models_dataset_path,
+                                                                    filtered_features_filename.replace('.h5', 'pkl').replace('FilteredFeaturesDataset', 'speed_%02d_%02d__ModelMetrics' \
+                                                                                                %(speed_bounds[0], speed_bounds[1]))  )
+                    with open(modelmetrics_output_fullfilename, 'wb') as fid:
+                        output = {}
+                        output['speed_bounds'] = speed_bounds
+                        output['metrics'] = metrics_all_dict
                         output['prediction_cross_val_dict'] = prediction_cross_val_dict
                         output['prediction_all_dict'] = prediction_all_dict
                         output['prediction_prob_all_dict'] = prediction_prob_all_dict
 
                         output['indices'] = indices
 
-                        output['mask_balanced'] = masks['balanced']
+                        output['masks'] = masks
 
                         output['y_new'] = y_new
                         output['y_new_buffered'] = y_new_buffered
@@ -596,7 +629,7 @@ for kS_index, kS in enumerate(kS_list):
                         output['positive_window'] = positive_window
 
                         cPickle.dump(output, fid, 2)
-                    print('Wrote:{}'.format(output_fullfilename))
+                    print('Wrote:{}'.format(modelmetrics_output_fullfilename))
 
                 # save the file containing stuff at
 

@@ -1,12 +1,15 @@
+"""
+For fixing something related to the SNR_matrix - honestly don't remember. To be removed because was probably just a temporary
+Fix for something.
+9/17/2017, JK
+"""
+
 
 
 import os, sys, h5py
 import cPickle
 import shutil
 import glob
-
-
-
 
 
 input_path = '/Volumes/Lacie2TB/BAA/injection_resources/processed_datasets/5b178c11-a4e4-4b19-a925-96f27c49491b'

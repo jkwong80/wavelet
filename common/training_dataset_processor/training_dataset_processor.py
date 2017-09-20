@@ -69,7 +69,7 @@ def GetSourceMapping(id):
     # id = 'dd70a53c-0598-447c-9b23-ea597ed1704e'
     paths = GetInjectionResourcePaths()
 
-    temp_list = glob.glob(os.path.join(paths['training_datasets'], id, '*.h5'))
+    temp_list = glob.glob(os.path.join(paths['training_datasets_root'], id, '*.h5'))
     with h5py.File(temp_list[0], 'r') as fid:
         source_name_list = fid['source_name_list'].value
 

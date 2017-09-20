@@ -1,3 +1,8 @@
+"""For compressing some training dataset files that were generated early on.  This script is to be removed as
+it is no longer useful.
+
+
+"""
 
 from __future__ import print_function
 

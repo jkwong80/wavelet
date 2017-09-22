@@ -14,22 +14,8 @@ from sklearn.feature_selection import SelectKBest, chi2, f_classif, mutual_info_
 
 from collections import Counter
 
-from sklearn.model_selection import StratifiedKFold
-from sklearn import preprocessing
-
-from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score
-
-# does not work with multidimensional y: mutual_info_regression, mutual_info_classif, f_classif, f_regression
-# works with multidimensional y: chi2
-
-from sklearn.ensemble import RandomForestClassifier
-
-
-from scipy.stats import pearsonr
 
 # open a couple files and append the results
-
-
 if 'INJECTION_RESOURCES' in os.environ:
     base_dir = os.environ['INJECTION_RESOURCES']
 else:
@@ -58,7 +44,7 @@ filtered_features_dataset_path = os.path.join(filtered_features_dataset_root_pat
 training_dataset_path = os.path.join(training_datasets_root_path, training_set_id)
 training_dataset_fullfilename_list = glob.glob(os.path.join(training_dataset_path, '*.h5'))
 training_dataset_filename_list = [os.path.split(f)[-1] for f in training_dataset_fullfilename_list]
-training_dataset_index_list = [int(f.split('__')[1]) for f in training_dataset_filename_list]
+training_dataset_index_list = [int(f.split('__')[1]) for f in training_dataset_filename_list if 'all' not in f]
 
 
 # get the processed dataset files
@@ -73,7 +59,7 @@ processed_dataset_narrow_index_list = [int(f.split('__')[1]) for f in processed_
 # get the target files
 target_values_path = os.path.join(processed_datasets_root_path, training_set_id)
 target_values_fullfilename_list = glob.glob(os.path.join(processed_dataset_path, '*TargetValues.h5'))
-target_values_index_list = [int(f.split('__')[1]) for f in target_values_fullfilename_list]
+target_values_index_list = [int(f.split('__')[1]) for f in target_values_fullfilename_list if 'all' not in f]
 
 
 # focus on a single detector
@@ -363,11 +349,11 @@ feature_score_array[indexindex, feature_selection_dict[scoring_function_key][sou
     feature_selection_dict[scoring_function_key][source_index]['top_features_scores']
 
 
+# create the various feature sets
 mask_filtered_features_3 = feature_count_array.sum(0) > 3
 mask_filtered_features_2 = feature_count_array.sum(0) > 2
 mask_filtered_features_1 = feature_count_array.sum(0) > 1
 mask_filtered_features_0 = feature_count_array.sum(0) > 0
-
 mask_filtered_features = feature_count_array.sum(0) > 3
 
 indices_filtered_features = np.where(mask_filtered_features)[0]
@@ -387,8 +373,7 @@ for scoring_function_key, scoring_function in scoring_functions_dict.iteritems()
         print('{}, {}: {}'.format(scoring_function_key, source_index, len(features_intersection)))
 
 
-
-# get the processed dataset files
+# save features ot pickle and h5 files
 filename_suffix = 'kS_%02d__kB_%02d__gap_%02d' % (kS, kB, gap)
 
 with h5py.File('%s__%s__top_features.h5' %(training_set_id, filename_suffix), 'w') as f:
@@ -399,6 +384,7 @@ with h5py.File('%s__%s__top_features.h5' %(training_set_id, filename_suffix), 'w
     f.create_dataset('mask_filtered_features', data = mask_filtered_features_2)
     f.create_dataset('feature_count_array', data = feature_count_array)
     f.create_dataset('feature_score_array', data = feature_score_array)
+
 
 with open('%s__%s__top_features.pkl' %(training_set_id, filename_suffix), 'wb') as fid:
     output = {}
@@ -423,7 +409,6 @@ with open('%s__%s__top_features.pkl' %(training_set_id, filename_suffix), 'wb') 
 # feature_score_array
 
 # plot of the tally count of from separate scoring algorithms
-
 plt.figure()
 plt.grid()
 for scoring_function_index, scoring_function_key in enumerate(feature_selection_dict.keys()):
@@ -436,7 +421,6 @@ plt.title()
 
 
 # plot of the score of from separate scoring algorithms
-
 plt.figure()
 plt.grid()
 for scoring_function_index, scoring_function_key in enumerate(feature_selection_dict.keys()):

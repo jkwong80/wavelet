@@ -56,6 +56,8 @@ def GetInjectionResourcePaths():
     paths['training_datasets_root'] = os.path.join(base_dir, 'training_datasets')
     paths['processed_datasets_root'] = os.path.join(base_dir, 'processed_datasets')
     paths['filtered_features_datasets_root'] = os.path.join(base_dir, 'filtered_features_datasets')
+    paths['feature_selection_root'] = os.path.join(base_dir, 'feature_selection')
+
     paths['models_root'] = os.path.join(base_dir, 'models')
     paths['snr_root']= os.path.join(base_dir, 'snr_functions')
     paths['snr'] = os.path.join(paths['snr_root'], '20170824')

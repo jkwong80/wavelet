@@ -1,44 +1,28 @@
 
-import os, sys, glob, time
-import h5py, cPickle
 import copy
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.feature_selection import SelectKBest, chi2, f_classif, mutual_info_classif, f_regression, mutual_info_regression
-
 from collections import Counter
-from sklearn.model_selection import StratifiedKFold
-from sklearn import preprocessing
 
-from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score, accuracy_score, roc_curve
+import cPickle
+import h5py
+import numpy as np
+import os
+import sys
+import time
+from keras.wrappers.scikit_learn import KerasClassifier
+from sklearn import preprocessing
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 # does not work with multidimensional y: mutual_info_regression, mutual_info_classif, f_classif, f_regression
 # works with multidimensional y: chi2
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
-
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-
-from keras.models import Sequential
-from keras.layers import Dense
-from keras.layers import Dropout
-from keras.wrappers.scikit_learn import KerasClassifier
-from keras.constraints import maxnorm
-from keras.optimizers import SGD
-from sklearn.model_selection import cross_val_score
-from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score, accuracy_score
 from sklearn.model_selection import StratifiedKFold
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import Pipeline
-from keras import metrics
-
-from sklearn.utils import class_weight
-from scipy.stats import pearsonr
 
 plot_markers = ''
 
 sys.setrecursionlimit(10000)
 
-from nn_models import create_neural_network_2layer_model, create_neural_network_3layer_model, create_neural_network_4layer_model,\
+from detection_algorithms.isotope_id.nn_models import create_neural_network_2layer_model, create_neural_network_3layer_model, create_neural_network_4layer_model,\
     create_neural_network_4layer_no_dropout_model, create_neural_network_5layer_model
 
 # open a couple files and append the results

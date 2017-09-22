@@ -18,13 +18,20 @@ import time
 import numpy as np
 
 class isoSNRFeature:
-    def __init__(self, nElem, kB, gap, kS):
+    def __init__(self, nElem, kB, gap, kS, bins = None):
         w = waveletBinTree(nElem)
-        self.bins = w.flatList()
+
+        if bins is None:
+            self.bins = w.flatList()
+        else:
+            self.bins = bins
 
         self.nchan = np.zeros(len(self.bins))
         for i in range(len(self.bins)):
-            self.nchan[i] = len(self.bins[i])
+            if type(self.bins) == np.ndarray:
+                self.nchan[i] = self.bins[i][-1] - self.bins[i][0] + 1
+            else:
+                self.nchan[i] = len(self.bins[i])
 
         self.BEst = backgroundEstimation(kB, gap, len(self.bins))
         self.S = EWMA(kS, len(self.bins))

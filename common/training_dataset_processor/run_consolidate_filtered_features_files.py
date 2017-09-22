@@ -1,14 +1,23 @@
 """Consolidates the filtered features files
+
+
+
+>>python common/training_dataset_processor/run_consolidate_filtered_features_files.py {file path} {job id} {ks} {kB] {gap} {start index} {stop index} {name of the feature index list}
+
+Example
+>>python common/training_dataset_processor/run_consolidate_filtered_features_files.py /Volumes/Lacie2TB/BAA/injection_resources/filtered_features_datasets/dd70a53c-0598-447c-9b23-ea597ed1704e dd70a53c-0598-447c-9b23-ea597ed1704e 2 16 4 0 99 mask_filtered_features_3
+
 Arguments
 
-file path
-uuid
+file path - location of the filtered features files
+job id - job uuid
 kS
 kB
 gap
-start index
-stop index
-feature set name
+start index - start index of files to consolidate
+stop index - stop index of files to consolidate
+feature set name - feature set name in data structure created by select_best_features_first_pass.py. example "mask_filtered_features_3"
+
 
 
 """
@@ -36,35 +45,18 @@ if __name__ == '__main__':
     temp = glob.glob(os.path.join(file_path, \
                       '*kS_%02d__kB_%02d__gap_%02d__%s__FilteredFeaturesDataset.h5' % ( kS, kB, gap, feature_indices_name)))
 
-    # filtered_features_dataset_fullfilename = os.path.join(filtered_features_dataset_path,
-    #                                                       '%s__%03d__kS_%02d__kB_%02d__gap_%02d__%s__FilteredFeaturesDataset.h5' \
-    #                                                       % (training_set_id, file_list_index, kS, kB, gap,
-    #                                                          feature_indices_name))
-
+    # make list of files that are in the file number range
     fullfilename_list = [f for f in temp if (training_set_id in f) and ('all' not in f) and (int(f.split('__')[1]) >= start_index) and (int(f.split('__')[1]) <= stop_index)]
     fullfilename_list.sort()
+
     # make sure not 'all' and that the index is in range
     # filename_list = [os.path.split(f)[-1] for f in fullfilename_list if ('all' not in f) and (int(f.split('__')[1]) >= start_index) and (int(f.split('__')[1]) <= stop_index)]
     filename_list = [os.path.split(f)[-1] for f in fullfilename_list]
 
-    # # get the indices of these files
-    # # get the job id
-    # id = filename_list[0].split('__')[0]
-    # file_indices = [int(f.split('__')[1]) for f in filename_list]
-    # file_indices.sort()
-    # training_data_fullfilename_list = [os.path.join(training_data_path, '%s__%03d__TrainingDataset.h5' %(id, file_index)) for file_index in file_indices]
-
-    # temp = [int(f.split('__')[1]) for f in filename_list if 'all' not in f]
-    #
-    # dataset_index_list = [f for f in temp if (f >= start_index) and (f <= stop_index)]
-
-    print(filename_list)
+    # print(filename_list)
 
     output_filename = '%s__all__kS_%02d__kB_%02d__gap_%02d__%s__FilteredFeaturesDataset.h5' % (training_set_id, kS, kB, gap, feature_indices_name)
 
     output_fullfilename = os.path.join(file_path, output_filename)
 
     training_dataset_processor.ConsolidateFilteredFeatturesFiles(fullfilename_list, output_fullfilename)
-    # training_dataset_processor.ConsolidateFilteredFeatturesFiles(fullfilename_list, training_data_fullfilename_list, output_fullfilename)
-
-

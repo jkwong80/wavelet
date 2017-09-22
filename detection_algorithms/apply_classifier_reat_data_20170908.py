@@ -1,14 +1,13 @@
 
-import os, sys, glob, time
-import h5py, cPickle
-import copy
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.feature_selection import SelectKBest, chi2, f_classif, mutual_info_classif, f_regression, mutual_info_regression
-
 from collections import Counter
-from sklearn.model_selection import StratifiedKFold
-from sklearn import preprocessing
+
+import cPickle
+import glob
+import h5py
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+import sys
 
 # assumes that you are at the base of the repo
 sys.path.append('common')
@@ -33,10 +32,6 @@ import training_dataset_processor.training_dataset_processor
 #
 # from sklearn.utils import class_weight
 # from scipy.stats import pearsonr
-
-
-from nn_models import create_neural_network_2layer_model, create_neural_network_3layer_model, create_neural_network_4layer_model,\
-    create_neural_network_4layer_no_dropout_model, create_neural_network_5layer_model
 
 
 plot_markers = ''

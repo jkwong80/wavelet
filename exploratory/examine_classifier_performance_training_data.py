@@ -4,21 +4,17 @@ Looking at the values in the file saved by train_classifiers_grid.py
 
 """
 
-import os, sys, glob, time
+import os
+import sys
+
 sys.setrecursionlimit(10000)
 
 
 import h5py, cPickle
-import copy
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.feature_selection import SelectKBest, chi2, f_classif, mutual_info_classif, f_regression, mutual_info_regression
 
-from sklearn.metrics import f1_score, precision_score, recall_score, precision_recall_curve, roc_curve, accuracy_score
-
-from collections import Counter
-from sklearn.model_selection import StratifiedKFold
-from sklearn import preprocessing
+from sklearn.metrics import f1_score, precision_score, recall_score, roc_curve, accuracy_score
 
 # assumes that you are at the base of the repo
 sys.path.append('common')
@@ -26,10 +22,6 @@ sys.path.append('detection_algorithm')
 
 # from training_dataset_processor.training_dataset_processor import GetInjectionResourcePaths, GetSourceMapping
 import training_dataset_processor.training_dataset_processor
-
-
-from detection_algorithms.nn_models import create_neural_network_2layer_model, create_neural_network_3layer_model, create_neural_network_4layer_model,\
-    create_neural_network_4layer_no_dropout_model, create_neural_network_5layer_model
 
 lineStyles = ['-', '--', '-.', ':']
 markerTypes = ['.', '*', 'o', 'd', 'h', 'p', 's', 'v', 'x']

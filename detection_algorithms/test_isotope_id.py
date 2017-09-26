@@ -1,3 +1,8 @@
+""" test_isotope_id.py
+
+Demonstrates the
+"""
+
 import os, sys
 import h5py
 import numpy as np
@@ -22,6 +27,7 @@ import detection_algorithms.isotope_id.isotope_id
 
 paths = training_dataset_processor.training_dataset_processor.GetInjectionResourcePaths()
 
+# real data path
 paths['real_data'] = os.path.join(paths['real_data_root'], '20170908')
 
 parameters_file = os.path.join(paths['models_root'], '9', 'model_parameters.h5')
@@ -58,7 +64,6 @@ plt.plot(np.argmax(prob_array, axis = 1))
 
 plt.figure()
 plt.imshow(prob_array, aspect = 'auto', interpolation = 'nearest')
-
 
 
 plt.figure(figsize = [20, 20])

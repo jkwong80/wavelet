@@ -6,11 +6,12 @@ Isotope id algorithm class
 
 
 
-from keras.models import load_model
-import wavelet_core
 import copy
+
 import h5py
-from nn_models import create_neural_network_2layer_model, create_neural_network_3layer_model
+from keras.models import load_model
+
+import wavelet_core
 
 
 class isotope_id(object):

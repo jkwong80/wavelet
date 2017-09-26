@@ -1,34 +1,28 @@
 """Consolidates the filtered features files
+The filtered features files
 
-
-
+Usage
 >>python common/training_dataset_processor/run_consolidate_filtered_features_files.py {file path} {job id} {ks} {kB] {gap} {start index} {stop index} {name of the feature index list}
+
+Arguments:
+    file path - location of the filtered features files
+    job id - job uuid
+    kS - wavelet kS value
+    kB - wavelet kB value
+    gap - wavelet gap value
+    start index - start index of files to consolidate
+    stop index - stop index of files to consolidate
+    feature set name - feature set name in data structure created by select_best_features_first_pass.py. example "mask_filtered_features_3"
 
 Example
 >>python common/training_dataset_processor/run_consolidate_filtered_features_files.py /Volumes/Lacie2TB/BAA/injection_resources/filtered_features_datasets/dd70a53c-0598-447c-9b23-ea597ed1704e dd70a53c-0598-447c-9b23-ea597ed1704e 2 16 4 0 99 mask_filtered_features_3
 
-Arguments
-
-file path - location of the filtered features files
-job id - job uuid
-kS
-kB
-gap
-start index - start index of files to consolidate
-stop index - stop index of files to consolidate
-feature set name - feature set name in data structure created by select_best_features_first_pass.py. example "mask_filtered_features_3"
-
-
-
 """
 
 import os, sys, glob
-
 import training_dataset_processor
 
-
 if __name__ == '__main__':
-
     print(sys.argv)
     file_path = sys.argv[1]
     # training_data_path = sys.argv[2]

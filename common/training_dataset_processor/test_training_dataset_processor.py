@@ -1,3 +1,23 @@
+"""
+Generates the SNR wavelet features files, one per training dataset file.
+
+>>python common/training_dataset_processor/test_training_dataset_processor.py {job uuid} {num_threads} {kS_list} {kB} {kS} {file index start} {file index stop}
+
+Arguments:
+    job_uuid - the job uuid
+    num_threads - number of cpu threads to use
+    kS_list - list of kS values to process for, it must be comma separated list; if you want to process for a single value,
+        there should still be a comma. e.g. "2,"
+    file_index_start - the index of the first training dataset to process
+    file_index_stop - the index of the last training dataset to process
+
+Example:
+>>python common/training_dataset_processor/test_training_dataset_processor.py dd70a53c-0598-447c-9b23-ea597ed1704e 4 4, 32 8 0 99
+
+
+"""
+
+
 from __future__ import print_function
 
 import h5py

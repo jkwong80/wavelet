@@ -1,17 +1,24 @@
 """ Examine the wavelet features and perform feature selection.
 Also create rough
 
+Usage
+>>python common/training_dataset_processor/run_create_filtered_features_files.py {training_set_id} {number_threads} {ks_list} {kB} {gap} {acquisitions_skip} {acquisitions_skip} {file_index_start} {file_index_stop} {feature_indices_name}
+
 Arguments
-    training_set_id uuid
-    training_set_id = str(sys.argv[1])
-    number_threads = int(sys.argv[2])
-    kS_list = ast.literal_eval(sys.argv[3])
-    kB = ast.literal_eval(sys.argv[4])
-    gap = ast.literal_eval(sys.argv[5])
-    acquisitions_skip = ast.literal_eval(sys.argv[6])
-    number_acquisitions_save = ast.literal_eval(sys.argv[7])
-    file_index_start = int(sys.argv[8])
-    file_index_stop = int(sys.argv[9])+1
+    training_set_id - job uuid, this value is originally created when assigning
+    number_threads - number of threads to use, recommend that the maximum value be your cpu threads - 1
+    kS_list - comma-separated list of kS values
+    kB - wavelet kB value
+    gap - wavelet gap value
+    acquisitions_skip - number of acquisitions to skip in the training data
+    number_acquisitions_save - number of acquisitions to save after the skipping acquisitions_skip acquisitions
+    file_index_start - index of first file to process
+    file_index_stop - index of last file to process
+
+Example
+>>python common/training_dataset_processor/run_create_filtered_features_files.py dd70a53c-0598-447c-9b23-ea597ed1704e 4 2, 16 4 10 25 0 99 mask_filtered_features_2
+
+
 """
 
 import os, sys, glob, time
@@ -83,7 +90,6 @@ if __name__ == '__main__':
     number_acquisitions_save = ast.literal_eval(sys.argv[7])
     file_index_start = int(sys.argv[8])
     file_index_stop = int(sys.argv[9])+1
-
     feature_indices_name = sys.argv[10]
 
     pool = Pool(processes=number_threads)

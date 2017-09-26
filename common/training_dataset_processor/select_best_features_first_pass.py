@@ -1,32 +1,37 @@
-""" Examine the wavelet features and perform feature selection.
-Also create rough
+""" Examine the wavelet features and perform feature selection using various sklearn packages
+
+Creates many plots with scores for the features.
+Saves several feature lists to h5 and pkl files:
+ - '%s__%s__top_features.h5' %(training_set_id, filename_suffix))
+ - '%s__%s__top_features.pkl' %(training_set_id, filename_suffix))
+
+resources:
+http://scikit-learn.org/stable/modules/feature_selection.html
+http://scikit-learn.org/stable/modules/generated/sklearn.feature_selection.SelectKBest.html
+
+
 """
-#
 
 import os, sys, glob, time
 import h5py
 import cPickle
-
 import numpy as np
 import matplotlib.pyplot as plt
-
 from sklearn.feature_selection import SelectKBest, chi2, f_classif, mutual_info_classif, f_regression, mutual_info_regression
-
 from collections import Counter
 
 
-# open a couple files and append the results
+# define the directories:
 if 'INJECTION_RESOURCES' in os.environ:
-    base_dir = os.environ['INJECTION_RESOURCES']
+    base_dir = os.environ['INJECTION_RESOURCES']C
 else:
     base_dir = os.path.join(os.environ['HOME'], 'injection_resources')
 
 plot_dir = os.path.join(base_dir, 'plots', time.strftime('%Y%m%d'))
 training_datasets_root_path = os.path.join(base_dir, 'training_datasets')
 processed_datasets_root_path = os.path.join(base_dir, 'processed_datasets')
-
 filtered_features_dataset_root_path = os.path.join(base_dir, 'filtered_features_datasets')
-
+feature_selection_root = os.path.join(base_dir, 'feature_selection')
 
 # parameters
 kS = 2
@@ -65,7 +70,6 @@ target_values_index_list = [int(f.split('__')[1]) for f in target_values_fullfil
 # focus on a single detector
 
 detector_indices_load_list = np.array([0])
-
 dataset_index_list = np.arange(2)
 
 load_background = False
@@ -170,18 +174,14 @@ for i in xrange(9, 10, 1):
         # break
 
 
-
-
 # Condense the feature and target matrices, removing the transient section at the start of the drive by
 
 number_acquisitions_save = 25
 acquisitions_skip = 10
 
-# source_signal_matrix_all = np.zeros((number_instances * number_acquisitions,source_signal_total_counts_all_detectors_matrix.shape[1]))
 source_signal_matrix_all = np.zeros((number_instances * number_acquisitions_save,source_signal_total_counts_all_detectors_matrix.shape[1]))
 
 # reshaping the matrix
-# SNR_matrix_all = np.zeros((number_instances * number_acquisitions,number_wavelet_bins))
 SNR_matrix_all = np.zeros((number_instances * number_acquisitions_save,number_wavelet_bins))
 
 detector_index = 0
@@ -202,6 +202,8 @@ for instance_index in xrange(number_instances):
 
     source_signal_matrix_all[start:stop,:] = source_signal_total_counts_all_detectors_matrix[instance_index, :,start0:stop0].T
 
+
+
 # trying to figure out what part to keep for
 
 # plot of the snr vs time for all
@@ -214,14 +216,12 @@ temp = source_signal_total_counts_all_detectors_matrix[:,:,:].mean(0).mean(0)
 plt.plot(temp/ np.max(temp) * np.max(SNR_matrix[:200,0,:,2051].mean(0)), '-k', linewidth = 4)
 plt.title('wavelet_index: %d, ' %(wavelet_index))
 
-
 plt.figure()
 plt.grid()
 plt.plot(SNR_matrix[:,0,10:35,2051].T)
 plt.plot(SNR_matrix[:,0,10:35,2051].mean(0), linewidth = 2)
 x = source_signal_total_counts_all_detectors_matrix[:,:,35:55].mean(0).mean(0)
 plt.plot(x * 20 / max(x), linewidth = 3)
-
 
 # plot pcolor plot
 plt.figure()
@@ -231,7 +231,6 @@ plt.clim((-40, 90))
 plt.title('instance %d, signal+background, %s' % (i, source_name))
 
 
-
 # let's make some plots to make sure that things are okay.
 
 plt.figure()
@@ -239,21 +238,16 @@ plt.grid()
 plt.plot(source_signal_matrix_all)
 plt.plot(SNR_matrix_all.sum(1))
 
-
-
 training_instance_index = 15
 
 plt.figure()
-
 plt.grid()
 plt.plot(source_signal_matrix_all[training_instance_index,:])
 plt.plot(SNR_matrix_all[training_instance_index,:])
 
-
-
 # PERFORM FEATURES SELECTION
 
-# use chi2 and the multidimensional y
+# Use chi2 and the multidimensional y
 
 number_features_keep = 100
 feature_selection_ch2_multiclass = {}
@@ -280,6 +274,7 @@ scoring_functions_dict['mutual_info_regression'] = mutual_info_regression
 
 # use f_regression
 
+# number of features to keep per target class
 number_features_keep = 50
 
 feature_selection_dict = {}
@@ -314,7 +309,7 @@ for scoring_function_key, scoring_function in scoring_functions_dict.iteritems()
             np.array(feature_selection_dict[scoring_function_key][source_index]['ch2'].scores_)[feature_selection_dict[scoring_function_key][source_index]['top_features_indices']]
 
 
-# create a tally of the numger of times a features is select
+# Create a tally of the number of times a features is select
 # also sum up the scores but not sure how this scales for scores of different targets (sources)
 feature_count_array = np.zeros((len(feature_selection_dict)+1, number_wavelet_bins))
 feature_score_array = np.zeros((len(feature_selection_dict)+1, number_wavelet_bins))
@@ -364,19 +359,14 @@ print('Number of features to keep: {}'.format(sum(mask_filtered_features)))
 for scoring_function_key, scoring_function in scoring_functions_dict.iteritems():
     if scoring_function_key in ['mutual_info_regression', 'mutual_info_classif']:
         continue
-
     for source_index in xrange(number_sources):
         top_features_indices = feature_selection_dict[scoring_function_key][source_index]['top_features_indices']
-
         features_intersection = list(set(indices_filtered_features).intersection(set(top_features_indices)))
-
         print('{}, {}: {}'.format(scoring_function_key, source_index, len(features_intersection)))
-
 
 # save features ot pickle and h5 files
 filename_suffix = 'kS_%02d__kB_%02d__gap_%02d' % (kS, kB, gap)
-
-with h5py.File('%s__%s__top_features.h5' %(training_set_id, filename_suffix), 'w') as f:
+with h5py.File(os.path.join(feature_selection_root, '%s__%s__top_features.h5' %(training_set_id, filename_suffix)), 'w') as f:
     f.create_dataset('mask_filtered_features_0', data = mask_filtered_features_0)
     f.create_dataset('mask_filtered_features_1', data = mask_filtered_features_1)
     f.create_dataset('mask_filtered_features_2', data = mask_filtered_features_2)
@@ -385,24 +375,18 @@ with h5py.File('%s__%s__top_features.h5' %(training_set_id, filename_suffix), 'w
     f.create_dataset('feature_count_array', data = feature_count_array)
     f.create_dataset('feature_score_array', data = feature_score_array)
 
-
-with open('%s__%s__top_features.pkl' %(training_set_id, filename_suffix), 'wb') as fid:
+with open(os.path.join(feature_selection_root, '%s__%s__top_features.pkl' %(training_set_id, filename_suffix)), 'wb') as fid:
     output = {}
     output['mask_filtered_features_0'] = mask_filtered_features_0
     output['mask_filtered_features_1'] = mask_filtered_features_1
     output['mask_filtered_features_2'] = mask_filtered_features_2
     output['mask_filtered_features_3'] = mask_filtered_features_3
     output['mask_filtered_features'] = mask_filtered_features_2
-
     output['feature_count_array'] = feature_count_array
     output['feature_score_array'] = feature_score_array
-
     output['feature_selection_ch2_multiclass'] = feature_selection_ch2_multiclass
     output['feature_selection_dict'] = feature_selection_dict
-
     cPickle.dump(output, fid, 2)
-
-
 
 
 # things to save

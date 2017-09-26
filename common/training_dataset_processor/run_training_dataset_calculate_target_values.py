@@ -1,5 +1,15 @@
 """ Calculates the target values for training data in a directory
-python run_training_dataset_calculate_target_values.py <input_directory> <output_directory>
+
+Usage:
+>>python run_training_dataset_calculate_target_values.py <input_directory> <output_directory>
+
+Arguments
+    input_directory - path ot the training dataset files
+    output_directory - path of output files
+
+Example:
+>>python common/training_dataset_processor/run_training_dataset_calculate_target_values.py /Volumes/Lacie2TB/BAA/injection_resources/training_datasets/dd70a53c-0598-447c-9b23-ea597ed1704e /Volumes/Lacie2TB/BAA/injection_resources/processed_datasets/dd70a53c-0598-447c-9b23-ea597ed1704e
+
 
 
 """
@@ -27,3 +37,4 @@ def CalculateTargetValuesMultiple(input_directory, output_directory):
 
 if __name__ == '__main__':
     CalculateTargetValuesMultiple(sys.argv[1], sys.argv[2])
+
